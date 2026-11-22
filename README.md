@@ -1,31 +1,24 @@
-# KnkView 📈
+# TrendTakip 📈
 
-Kendi grafik ve analiz platformumuz: TradingView tarzı, sıfırdan yazılmış grafik motoru.
+Kripto, Borsa İstanbul, altın ve döviz için canlı grafik, teknik analiz, istatistiksel fiyat tahmini ve alarm platformu.
+Grafik motoru sıfırdan yazılmıştır (canvas, harici grafik kütüphanesi yok).
 
 ## Özellikler
-- **Canlı kripto**: Binance'ten gerçek zamanlı fiyat (WebSocket). Aramaya herhangi bir coin yaz → `＋ XXXUSDT` ile ekle.
-- **Borsa İstanbul, altın, döviz, ABD hisseleri**: Yahoo Finance üzerinden (borsa verisi ~15 dk gecikmeli olabilir). Aramaya hisse kodu yaz → `＋ XXXX Borsa İstanbul`.
-- Mum / Heikin Ashi / çizgi / alan grafik, 1dk–1 hafta zaman dilimleri
-- SMA 20, EMA 50, EMA 200, Bollinger, hacim, RSI, MACD
-- Trend çizgisi, yatay seviye, Fibonacci (mıknatıslı)
-- Fiyat alarmları, 100.000$'lık demo işlem hesabı
-- CSV yükleme (kendi verin)
-- Mobil uyumlu
+- **Canlı veri**: Binance (kripto, WebSocket) · Yahoo Finance (BIST ~15 dk gecikmeli, altın, döviz, ABD hisseleri)
+- **Çoklu grafik**: 1 / 2 / 4 grafik yan yana, her biri kendi sembol ve zaman dilimiyle
+- **İndikatörler**: SMA, EMA, Bollinger, Ichimoku, Hacim Profili, Hacim · alt panel RSI / MACD / Stokastik
+- **Çizim**: trend, yatay seviye, Fibonacci düzeltme, Fibonacci uzantı (3 nokta), alarm
+- **Teknik skor**: 19 göstergeden Güçlü Al → Güçlü Sat özeti
+- **Fiyat tahmini**: oynaklık + trend eğiminden %50/%80 olasılık konisi, geçmiş isabet testiyle
+- **Piyasa tarayıcı**: RSI, değişim, hacim ve teknik skora göre kripto ve BIST taraması
+- **Hesap (Supabase)**: e-posta bağlantısıyla giriş, cihazlar arası senkron
+- **Bildirim**: alarmlar sunucuda her dakika kontrol edilir, site kapalıyken web push gönderilir
+- Demo işlem hesabı, CSV yükleme, PWA (ana ekrana eklenebilir)
 
-## Yayına alma (Vercel, ücretsiz)
-1. Bu klasörü GitHub'da bir repoya yükle.
-2. https://vercel.com/new adresine git → GitHub ile giriş yap → repoyu seç → **Deploy**.
-3. Bitti. `api/` klasöründeki fonksiyonlar otomatik çalışır; BIST/altın/döviz canlı gelir.
+## Yapı
+- `index.html`, `css/app.css`, `js/*.js` — istemci (ES modülleri)
+- `api/` — Vercel fonksiyonları (Yahoo Finance aracısı, BIST tarayıcı)
+- `supabase/functions/alerts` — alarm kontrolü + web push (pg_cron ile dakikada bir)
+- `sw.js`, `manifest.webmanifest` — bildirimler ve uygulama kurulumu
 
-Ayar gerekmez: framework "Other", build komutu yok.
-
-## Sadece statik yayın (GitHub Pages / Netlify Drop)
-Sadece `index.html` yeterli. Kripto canlı çalışır; BIST/altın/döviz sunucu olmadığı için simülasyona düşer (ekranda **SİMÜLASYON** yazar).
-
-## Dosyalar
-- `index.html` — uygulamanın tamamı
-- `api/yahoo.js` — mum verisi (Yahoo Finance aracı)
-- `api/quotes.js` — izleme listesi fiyatları
-- `api/_yahoo.js` — ortak yardımcılar
-
-> Not: Veriler bilgi amaçlıdır, yatırım tavsiyesi değildir.
+> Veriler bilgi amaçlıdır, yatırım tavsiyesi değildir.
