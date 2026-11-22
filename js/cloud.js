@@ -28,6 +28,19 @@ export class Cloud {
     const { error } = await this.sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + '/' } });
     if (error) throw error;
   }
+  async loginPassword(email, password) {
+    const { error } = await this.sb.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+  }
+  async signUp(email, password) {
+    const { data, error } = await this.sb.auth.signUp({ email, password, options: { emailRedirectTo: location.origin + '/' } });
+    if (error) throw error;
+    if (!data.session) throw new Error(data.user && data.user.identities && !data.user.identities.length ? 'Bu e-posta zaten kayıtlı. "Giriş yap"ı kullan; şifren yoksa giriş yaptığın cihazdan Hesabım → Şifre belirle.' : 'Kayıt alındı, e-postanı onaylaman gerekiyor.');
+  }
+  async setPassword(password) {
+    const { error } = await this.sb.auth.updateUser({ password });
+    if (error) throw error;
+  }
   async logout() { await this.sb.auth.signOut(); this.user = null; this.app.renderAccount(); toast('Çıkış yapıldı'); }
 
   // ---- durum senkronu ----

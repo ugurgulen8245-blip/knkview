@@ -559,23 +559,41 @@ class App {
     if (u) {
       box.innerHTML = `<h3>Hesabım <button data-close>×</button></h3>
         <p class="note">Giriş yapıldı: <b>${esc(u.email || '')}</b></p>
-        <p class="note" style="margin-top:8px">İzleme listen, çizimlerin, grafik düzenin, demo hesabın ve alarmların bu hesapla tüm cihazlarında ortak. Alarmlar sunucuda her dakika kontrol edilir.</p>
+        <p class="note" style="margin-top:8px">İzleme listen, çizimlerin, portföyün, günlüğün, demo hesabın ve alarmların bu hesapla tüm cihazlarında ortak. Fiyat alarmları sunucuda her dakika kontrol edilir.</p>
         <button class="pbtn" id="accPush">🔔 Bu cihazda bildirimleri aç</button>
+        <div class="msub">ŞİFRE BELİRLE / DEĞİŞTİR</div>
+        <p class="note small" style="margin-top:0">Diğer cihazlarda (ör. iPhone ana ekran uygulaması) e-posta beklemeden şifreyle girebilmek için.</p>
+        <input class="field" id="accNewPw" type="password" placeholder="Yeni şifre (en az 6 karakter)" autocomplete="new-password">
+        <button class="pbtn ghost" id="accSetPw">Şifreyi kaydet</button>
         <button class="pbtn ghost" id="accOut">Çıkış yap</button>`;
       $('#accPush').onclick = () => this.enableNotifs();
+      $('#accSetPw').onclick = async () => { const pw = $('#accNewPw').value; if (pw.length < 6) return toast('Şifre en az 6 karakter olmalı', 'bad'); try { await this.cloud.setPassword(pw); $('#accNewPw').value = ''; toast('✓ Şifre kaydedildi. Artık her cihazda e-posta + şifreyle girebilirsin.', 'ok'); } catch (e) { toast('Şifre kaydedilemedi: ' + (e.message || e), 'bad'); } };
       $('#accOut').onclick = async () => { await this.cloud.logout(); $('#accModal').classList.remove('show'); };
     } else {
-      box.innerHTML = `<h3>Giriş yap / Kayıt ol <button data-close>×</button></h3>
-        <p class="note">E-posta adresini yaz, sana bir giriş bağlantısı gönderelim. Şifre yok. Giriş yapınca:</p>
-        <p class="note">• Çizimler, izleme listesi ve demo hesap tüm cihazlarında ortak olur<br>• Alarmlar site kapalıyken de telefonuna bildirim gönderir</p>
-        <input class="field" id="accEmail" type="email" placeholder="ornek@gmail.com" autocomplete="email">
-        <button class="pbtn" id="accSend">Giriş bağlantısı gönder</button>
-        <p class="note small" id="accMsg"></p>`;
-      $('#accSend').onclick = async () => {
-        const em = $('#accEmail').value.trim(); if (!/^\S+@\S+\.\S+$/.test(em)) return toast('Geçerli bir e-posta yaz', 'bad');
-        $('#accSend').disabled = true;
-        try { await this.cloud.login(em); $('#accMsg').innerHTML = `✉️ <b>${esc(em)}</b> adresine bağlantı gönderildi. Maildeki bağlantıya tıkla; bu sayfa otomatik giriş yapar. (Gelmezse spam klasörüne bak.)`; }
-        catch (e) { $('#accMsg').textContent = 'Gönderilemedi: ' + (e.message || e); $('#accSend').disabled = false; }
+      const mode = this.accMode || 'login';
+      box.innerHTML = `<h3>${mode === 'signup' ? 'Kayıt ol' : mode === 'link' ? 'Bağlantıyla giriş' : 'Giriş yap'} <button data-close>×</button></h3>
+        <div class="seg ${mode === 'link' ? 'two' : 'two'}" style="margin:0 0 10px"><button data-am="login" class="${mode === 'login' ? 'on' : ''}">Giriş yap</button><button data-am="signup" class="${mode === 'signup' ? 'on' : ''}">Kayıt ol</button></div>
+        <p class="note">Giriş yapınca çizimler, izleme listesi, portföy ve demo hesap tüm cihazlarında ortak olur; alarmlar site kapalıyken de bildirim gönderir.</p>
+        <input class="field" id="accEmail" type="email" placeholder="ornek@gmail.com" autocomplete="email" value="${esc(this.accEmail || '')}">
+        ${mode !== 'link' ? `<input class="field" id="accPw" type="password" placeholder="${mode === 'signup' ? 'Şifre belirle (en az 6 karakter)' : 'Şifre'}" autocomplete="${mode === 'signup' ? 'new-password' : 'current-password'}">` : ''}
+        <button class="pbtn" id="accGo">${mode === 'signup' ? 'Kayıt ol' : mode === 'link' ? 'Giriş bağlantısı gönder' : 'Giriş yap'}</button>
+        <p class="note small" id="accMsg"></p>
+        <p class="note small">${mode === 'link' ? '<a href="#" data-am="login">← Şifreyle giriş</a>' : 'Şifren yok mu? <a href="#" data-am="link">E-posta bağlantısıyla gir</a> (iPhone ana ekran uygulamasında çalışmaz; orada şifre kullan).'}</p>`;
+      box.querySelectorAll('[data-am]').forEach((b) => (b.onclick = (e) => { e.preventDefault(); this.accEmail = $('#accEmail').value; this.accMode = b.dataset.am; this.renderAccount(); }));
+      $('#accGo').onclick = async () => {
+        const em = $('#accEmail').value.trim(), pw = $('#accPw') ? $('#accPw').value : '';
+        if (!/^\S+@\S+\.\S+$/.test(em)) return toast('Geçerli bir e-posta yaz', 'bad');
+        if (mode !== 'link' && pw.length < 6) return toast('Şifre en az 6 karakter olmalı', 'bad');
+        $('#accGo').disabled = true;
+        try {
+          if (mode === 'login') { await this.cloud.loginPassword(em, pw); $('#accModal').classList.remove('show'); toast('✓ Giriş yapıldı', 'ok'); }
+          else if (mode === 'signup') { await this.cloud.signUp(em, pw); $('#accModal').classList.remove('show'); toast('✓ Hesabın oluşturuldu', 'ok'); }
+          else { await this.cloud.login(em); $('#accMsg').innerHTML = `✉️ <b>${esc(em)}</b> adresine bağlantı gönderildi. Maildeki bağlantıya tıkla. (Gelmezse spam klasörüne bak.)`; }
+        } catch (e) {
+          const m = String(e.message || e);
+          $('#accMsg').textContent = /Invalid login credentials/i.test(m) ? 'E-posta ya da şifre hatalı. Daha önce sadece bağlantıyla girdiysen şifren yok: giriş yaptığın cihazda Hesabım → Şifre belirle.' : /rate limit/i.test(m) ? 'Çok fazla e-posta gönderildi; bir saat sonra tekrar dene ya da şifreyle giriş yap.' : 'Olmadı: ' + m;
+          $('#accGo').disabled = false;
+        }
       };
     }
   }
