@@ -9,7 +9,7 @@ const M = {
     linked: "✅ TrendTakip hesabın bağlandı! Fiyat alarmların tetiklenince buraya mesaj gelecek.\n\nBağlantıyı kesmek için /stop yaz.",
     expired: "⚠️ Bu bağlantının süresi dolmuş. Sitede Hesabım → Telegram'ı bağla'ya tekrar bas.",
     stopped: "🔕 Bağlantı kesildi. Artık alarm mesajı gelmeyecek.",
-    hello: "👋 Ben TrendTakip alarm botuyum. Hesabını bağlamak için sitede Hesabım → Telegram'ı bağla'ya bas.\nhttps://knkview.vercel.app",
+    hello: "👋 Ben TrendTakip alarm botuyum. Hesabını bağlamak için sitede Hesabım → Telegram'ı bağla'ya bas.\nhttps://www.trendtakip.app",
     yes: "evet", no: "hayır",
   },
   en: {
@@ -20,7 +20,7 @@ const M = {
     linked: "✅ Your TrendTakip account is connected! You'll get a message here when your price alerts trigger.\n\nSend /stop to disconnect.",
     expired: "⚠️ This link has expired. On the site, tap My account → Connect Telegram again.",
     stopped: "🔕 Disconnected. You won't receive alert messages anymore.",
-    hello: "👋 I'm the TrendTakip alert bot. To connect your account, tap My account → Connect Telegram on the site.\nhttps://knkview.vercel.app",
+    hello: "👋 I'm the TrendTakip alert bot. To connect your account, tap My account → Connect Telegram on the site.\nhttps://www.trendtakip.app",
     yes: "yes", no: "no",
   },
   fr: {
@@ -31,7 +31,7 @@ const M = {
     linked: "✅ Votre compte TrendTakip est connecté ! Vous recevrez un message ici quand vos alertes se déclencheront.\n\nEnvoyez /stop pour déconnecter.",
     expired: "⚠️ Ce lien a expiré. Sur le site, touchez Mon compte → Connecter Telegram.",
     stopped: "🔕 Déconnecté. Vous ne recevrez plus de messages d'alerte.",
-    hello: "👋 Je suis le bot d'alertes TrendTakip. Pour connecter votre compte, touchez Mon compte → Connecter Telegram sur le site.\nhttps://knkview.vercel.app",
+    hello: "👋 Je suis le bot d'alertes TrendTakip. Pour connecter votre compte, touchez Mon compte → Connecter Telegram sur le site.\nhttps://www.trendtakip.app",
     yes: "oui", no: "non",
   },
   hi: {
@@ -42,7 +42,7 @@ const M = {
     linked: "✅ आपका TrendTakip खाता जुड़ गया! प्राइस अलर्ट ट्रिगर होने पर यहाँ मैसेज आएगा।\n\nडिस्कनेक्ट करने के लिए /stop भेजें।",
     expired: "⚠️ यह लिंक एक्सपायर हो गया है। साइट पर मेरा खाता → Telegram जोड़ें फिर से दबाएँ।",
     stopped: "🔕 डिस्कनेक्ट हो गया। अब अलर्ट मैसेज नहीं आएँगे।",
-    hello: "👋 मैं TrendTakip अलर्ट बॉट हूँ। खाता जोड़ने के लिए साइट पर मेरा खाता → Telegram जोड़ें दबाएँ।\nhttps://knkview.vercel.app",
+    hello: "👋 मैं TrendTakip अलर्ट बॉट हूँ। खाता जोड़ने के लिए साइट पर मेरा खाता → Telegram जोड़ें दबाएँ।\nhttps://www.trendtakip.app",
     yes: "हाँ", no: "नहीं",
   },
   zh: {
@@ -53,7 +53,7 @@ const M = {
     linked: "✅ 您的 TrendTakip 账户已连接！价格提醒触发时会在这里收到消息。\n\n发送 /stop 可断开连接。",
     expired: "⚠️ 此链接已过期。请在网站上再次点击“我的账户 → 连接 Telegram”。",
     stopped: "🔕 已断开连接。您将不再收到提醒消息。",
-    hello: "👋 我是 TrendTakip 提醒机器人。要连接账户，请在网站上点击“我的账户 → 连接 Telegram”。\nhttps://knkview.vercel.app",
+    hello: "👋 我是 TrendTakip 提醒机器人。要连接账户，请在网站上点击“我的账户 → 连接 Telegram”。\nhttps://www.trendtakip.app",
     yes: "是", no: "否",
   },
   ko: {
@@ -64,7 +64,7 @@ const M = {
     linked: "✅ TrendTakip 계정이 연결되었습니다! 가격 알림이 발동되면 여기로 메시지가 옵니다.\n\n연결을 끊으려면 /stop 을 보내세요.",
     expired: "⚠️ 이 링크는 만료되었습니다. 사이트에서 내 계정 → 텔레그램 연결을 다시 누르세요.",
     stopped: "🔕 연결이 끊어졌습니다. 더 이상 알림 메시지가 오지 않습니다.",
-    hello: "👋 TrendTakip 알림 봇입니다. 계정을 연결하려면 사이트에서 내 계정 → 텔레그램 연결을 누르세요.\nhttps://knkview.vercel.app",
+    hello: "👋 TrendTakip 알림 봇입니다. 계정을 연결하려면 사이트에서 내 계정 → 텔레그램 연결을 누르세요.\nhttps://www.trendtakip.app",
     yes: "예", no: "아니요",
   },
 };

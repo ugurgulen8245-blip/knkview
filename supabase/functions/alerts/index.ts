@@ -26,7 +26,7 @@ async function vapid() {
     pub = await kv("vapid_public"); priv = await kv("vapid_private");
   }
   VAPID = { pub: pub!, priv: priv! };
-  webpush.setVapidDetails("https://knkview.vercel.app", VAPID.pub, VAPID.priv);
+  webpush.setVapidDetails("https://www.trendtakip.app", VAPID.pub, VAPID.priv);
   return VAPID;
 }
 
@@ -71,7 +71,7 @@ async function sendTg(userId: string, title: Txt, body: Txt, path = "/") {
   if (!data) return 0;
   const l = data.lang || "tr";
   try {
-    await tg("sendMessage", { chat_id: data.chat_id, parse_mode: "HTML", text: `<b>${escH(txt(title, l))}</b>\n${escH(txt(body, l))}`, reply_markup: { inline_keyboard: [[{ text: msg(l, "open"), url: "https://knkview.vercel.app" + path }]] } });
+    await tg("sendMessage", { chat_id: data.chat_id, parse_mode: "HTML", text: `<b>${escH(txt(title, l))}</b>\n${escH(txt(body, l))}`, reply_markup: { inline_keyboard: [[{ text: msg(l, "open"), url: "https://www.trendtakip.app" + path }]] } });
     return 1;
   } catch (e) {
     if (/blocked|chat not found|deactivated/i.test(String(e))) await SB.from("tg_links").delete().eq("user_id", userId);
@@ -218,7 +218,7 @@ async function smartCheck() {
 // ---------- KAP: izlenen hisselerin yeni bildirimleri (2 dakikada bir) ----------
 async function kapCheck() {
   if (new Date().getUTCMinutes() % 2) return { skip: true };
-  const j = await getJSON(["https://knkview.vercel.app/api/kap?days=1"]);
+  const j = await getJSON(["https://www.trendtakip.app/api/kap?days=1", "https://knkview.vercel.app/api/kap?days=1"]);
   const items: any[] = j?.items ?? [];
   if (!items.length) return { n: 0 };
   const maxId = Math.max(...items.map((x) => x.id));
