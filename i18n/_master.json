@@ -5514,5 +5514,89 @@
 "hi": "ख़बरें आपकी भाषा और देश के हिसाब से Google News से आती हैं; शीर्षक पर टैप करें तो स्रोत पर खुलेगी।",
 "zh": "新闻来自 Google 新闻，依据你的语言和所在国家；点击标题可在来源处打开。",
 "ko": "뉴스는 언어와 국가에 맞춰 Google 뉴스에서 가져옵니다. 제목을 누르면 원문이 열립니다."
+},
+"🤖 Yapay zekâ yorumu": {
+"en": "🤖 AI commentary",
+"fr": "🤖 Commentaire IA",
+"hi": "🤖 AI टिप्पणी",
+"zh": "🤖 AI 点评",
+"ko": "🤖 AI 해설"
+},
+"Yorum oluştur": {
+"en": "Generate",
+"fr": "Générer",
+"hi": "टिप्पणी बनाएँ",
+"zh": "生成点评",
+"ko": "해설 생성"
+},
+"Yukarıdaki verileri yapay zekâ seçtiğin dilde yorumlar. Günlük kullanım sınırı vardır.": {
+"en": "AI interprets the data above in your language. There is a daily usage limit.",
+"fr": "L'IA commente les données ci-dessus dans votre langue. Une limite quotidienne s'applique.",
+"hi": "AI ऊपर के डेटा को आपकी भाषा में समझाता है। रोज़ाना इस्तेमाल की सीमा है।",
+"zh": "AI 会用你选择的语言解读上面的数据。每日有使用次数限制。",
+"ko": "AI가 위 데이터를 선택한 언어로 해설합니다. 하루 사용 한도가 있습니다."
+},
+"Son 1 saat içinde üretilen yorum gösteriliyor.": {
+"en": "Showing commentary generated within the last hour.",
+"fr": "Commentaire généré au cours de la dernière heure.",
+"hi": "पिछले 1 घंटे में बनी टिप्पणी दिखाई जा रही है।",
+"zh": "显示的是过去 1 小时内生成的点评。",
+"ko": "최근 1시간 안에 생성된 해설입니다."
+},
+"Yenile": {
+"en": "Refresh",
+"fr": "Actualiser",
+"hi": "रीफ़्रेश करें",
+"zh": "刷新",
+"ko": "새로고침"
+},
+"Yapay zekâ yorumu için giriş yapmalısın (Hesabım).": {
+"en": "Sign in to get AI commentary (My account).",
+"fr": "Connectez-vous pour obtenir le commentaire IA (Mon compte).",
+"hi": "AI टिप्पणी के लिए लॉग इन करें (मेरा खाता)।",
+"zh": "请先登录才能使用 AI 点评（我的账户）。",
+"ko": "AI 해설을 받으려면 로그인하세요 (내 계정)."
+},
+"Yapay zekâ yorumluyor…": {
+"en": "AI is writing…",
+"fr": "L'IA rédige…",
+"hi": "AI लिख रहा है…",
+"zh": "AI 正在撰写…",
+"ko": "AI가 작성 중…"
+},
+"Yapay zekâ henüz etkin değil.": {
+"en": "AI isn't enabled yet.",
+"fr": "L'IA n'est pas encore activée.",
+"hi": "AI अभी चालू नहीं है।",
+"zh": "AI 尚未启用。",
+"ko": "AI가 아직 활성화되지 않았습니다."
+},
+"Bugünkü yapay zekâ hakkın doldu ({0}). Yarın yenilenir.": {
+"en": "You've used today's AI quota ({0}). It resets tomorrow.",
+"fr": "Quota IA du jour atteint ({0}). Il se réinitialise demain.",
+"hi": "आज का AI कोटा ({0}) ख़त्म। कल फिर मिलेगा।",
+"zh": "今日 AI 次数已用完（{0}）。明天重置。",
+"ko": "오늘 AI 사용 한도({0})를 다 썼습니다. 내일 초기화됩니다."
+},
+"Sitenin bugünkü yapay zekâ kapasitesi doldu, yarın tekrar dene.": {
+"en": "The site's AI capacity for today is used up; try again tomorrow.",
+"fr": "La capacité IA du site est épuisée pour aujourd'hui ; réessayez demain.",
+"hi": "आज के लिए साइट की AI क्षमता ख़त्म; कल फिर कोशिश करें।",
+"zh": "本站今日 AI 容量已用完，请明天再试。",
+"ko": "오늘 사이트의 AI 용량이 소진되었습니다. 내일 다시 시도하세요."
+},
+"Yorum alınamadı, biraz sonra tekrar dene.": {
+"en": "Couldn't get commentary; try again shortly.",
+"fr": "Commentaire indisponible ; réessayez bientôt.",
+"hi": "टिप्पणी नहीं मिली; थोड़ी देर बाद कोशिश करें।",
+"zh": "未能获取点评，请稍后再试。",
+"ko": "해설을 받지 못했습니다. 잠시 후 다시 시도하세요."
+},
+"Bugün {0} yapay zekâ yorumu hakkın kaldı": {
+"en": "{0} AI commentaries left today",
+"fr": "Il vous reste {0} commentaires IA aujourd'hui",
+"hi": "आज {0} AI टिप्पणियाँ बाकी",
+"zh": "今日还剩 {0} 次 AI 点评",
+"ko": "오늘 AI 해설 {0}회 남음"
 }
 }

@@ -74,6 +74,7 @@ export async function openAnalyst(a) {
   } catch (e) { body.innerHTML = `<div class="empty" style="padding:30px">${esc(e.message || 'Analiz yapılamadı')}</div>`; }
 }
 
+let aiCtx = null;
 function render(body, sd, d, b, bd, news) {
   const m = metrics(d), R = IND.rating(d), F = IND.forecast(d, 20), Lv = levels(d), fl = flowFlags(m), p = m.p;
   const bm = bd && bd.length > 60 ? metrics(bd) : null;
@@ -130,6 +131,7 @@ function render(body, sd, d, b, bd, news) {
     <p class="anp">${md(tf('{0} {1}.', sd.n || sd.s, trend) + ' ' + mom)}</p>
     <div class="ancols"><div class="anbox g"><h5>Olumlu noktalar</h5>${plus.length ? plus.map((x) => `<div>✓ ${esc(x)}</div>`).join('') : '<div class="dim">Belirgin olumlu sinyal yok</div>'}</div>
       <div class="anbox r"><h5>Dikkat edilmesi gerekenler</h5>${minus.length ? minus.map((x) => `<div>⚠ ${esc(x)}</div>`).join('') : '<div class="dim">Belirgin risk sinyali yok</div>'}</div></div>
+    <div class="aibox" id="aiBox"><div class="aih"><b>🤖 Yapay zekâ yorumu</b><button class="pbtn" id="aiGo" style="width:auto;margin:0;padding:7px 12px">Yorum oluştur</button></div><div id="aiOut" class="note small" style="margin-top:6px">Yukarıdaki verileri yapay zekâ seçtiğin dilde yorumlar. Günlük kullanım sınırı vardır.</div></div>
     <h5 class="anh">📊 Teknik görünüm</h5><p class="anp">${md(volT)} ${md(lv)}</p>${fc ? `<p class="anp">${md(fc)}</p>` : ''}
     <h5 class="anh">📈 Performans${b ? ` · ${esc(b.s)} ile kıyas` : ''}</h5>
     <div class="perfg">${perf.map(([k, v, bv]) => `<div><span>${k}</span><b class="${v >= 0 ? 'up' : 'dn'}">${fPct(v, 1)}</b>${b && Number.isFinite(bv) ? `<i>${esc(b.s)}: ${fPct(bv, 1)}</i>` : ''}</div>`).join('')}</div>
@@ -138,4 +140,48 @@ function render(body, sd, d, b, bd, news) {
     <h5 class="anh">📰 Haberler ve etkisi</h5><p class="anp">${md(newsT)}</p>
     <div class="newsl">${N.map((x) => `<a href="${esc(x.link)}" target="_blank" rel="noopener"><span class="pill ${x.s > 0 ? 'b' : x.s < 0 ? 's' : 'n'}">${x.s > 0 ? 'Olumlu' : x.s < 0 ? 'Olumsuz' : 'Nötr'}</span><span class="nt">${esc(x.title)}<small>${esc(x.src || '')} · ${ago(x.t)}</small></span>${x.re ? `<span class="nr ${x.re.rNow >= 0 ? 'up' : 'dn'}" title="Haberden bu yana fiyat değişimi">${fPct(x.re.rNow, 1)}</span>` : ''}</a>`).join('') || '<div class="empty">Haber yok</div>'}</div>
     <div class="disc">Bu yorum, göstergelerden ve haber başlıklarındaki kelimelerden kurallarla otomatik üretilir; yapay zekâ değildir. Haberlerin olumlu/olumsuz etiketi başlık kelimelerine dayanır ve yanılabilir. Haberin yanındaki yüzde, haberden bu yana gerçekleşen fiyat değişimidir; değişimin nedeni o haber olmayabilir. Yatırım tavsiyesi değildir.</div>`;
+  const r1 = (x) => (Number.isFinite(x) ? Math.round(x * 100) / 100 : null);
+  aiCtx = { sym: sd.s, name: sd.n || '', facts: {
+    price: r1(p), change1d: r1(m.ch1), change1w: r1(m.ch5), change1m: r1(m.ch21), change3m: r1(m.ch63), change1y: r1(m.ch252),
+    rsi14: r1(m.rsi), macdAboveSignal: m.macdUp, aboveEMA50: m.aboveE50, aboveEMA200: m.aboveE200, ema50: r1(m.e50), ema200: r1(m.e200),
+    avgDailyRangePct: r1(m.atrPct), high52w: r1(m.hi52), low52w: r1(m.lo52), pctFromHigh52w: r1(m.dHi), pctFromLow52w: r1(m.dLo),
+    chaikinMoneyFlow: r1(m.cmf), moneyFlowIndex: r1(m.mfi), volumeVs20dAvg: r1(m.volR), technicalScore: r1(sc), technicalLabel: R ? R.label : null,
+    resistances: Lv.res.map((x) => r1(x.v)), supports: Lv.sup.map((x) => r1(x.v)),
+    forecast20d: F ? { median: r1(F.med[F.h]), low80: r1(F.lo80[F.h]), high80: r1(F.hi80[F.h]) } : null,
+    benchmark: b ? { symbol: b.s, change3m: bm ? r1(bm.ch63) : null } : null,
+    flowSignals: fl.map((f) => f.k),
+  }, news: N.map((x) => ({ title: x.title, s: x.s, re: x.re ? r1(x.re.rNow) : null })) };
+  const go = body.querySelector('#aiGo'); if (go) go.onclick = runAI;
+  const cached = aiCache(); if (cached) showAI(cached.text, true);
+}
+
+// ---------- yapay zekâ yorumu ----------
+const aiKey = () => aiCtx && `tt_ai:${aiCtx.sym}:${getLang()}`;
+function aiCache() { try { const j = JSON.parse(localStorage.getItem(aiKey()) || 'null'); return j && Date.now() - j.t < 36e5 ? j : null; } catch (_) { return null; } }
+function mdLite(s) {
+  return esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').split(/\n+/).map((l) => (/^\s*[-•]\s+/.test(l) ? `<div class="aili">• ${l.replace(/^\s*[-•]\s+/, '')}</div>` : `<p>${l}</p>`)).join('');
+}
+function showAI(text, cached) {
+  const out = document.getElementById('aiOut'); if (!out) return;
+  out.className = 'aitext'; out.innerHTML = mdLite(text) + (cached ? `<div class="note small">${esc(tf('Son 1 saat içinde üretilen yorum gösteriliyor.'))}</div>` : '');
+  const go = document.getElementById('aiGo'); if (go) go.textContent = tf('Yenile');
+}
+async function runAI() {
+  const out = document.getElementById('aiOut'), go = document.getElementById('aiGo');
+  const cloud = window.TT && window.TT.cloud;
+  if (!cloud || !cloud.user) { out.className = 'note small'; out.textContent = tf('Yapay zekâ yorumu için giriş yapmalısın (Hesabım).'); return; }
+  go.disabled = true; out.className = 'note small'; out.textContent = tf('Yapay zekâ yorumluyor…');
+  try {
+    const { data: s } = await cloud.sb.auth.getSession();
+    const r = await fetch('/api/ai', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (s.session && s.session.access_token) }, body: JSON.stringify({ ...aiCtx, lang: getLang() }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      const msg = j.error === 'nokey' ? tf('Yapay zekâ henüz etkin değil.') : j.error === 'login' ? tf('Yapay zekâ yorumu için giriş yapmalısın (Hesabım).') : j.error === 'limit' ? tf('Bugünkü yapay zekâ hakkın doldu ({0}). Yarın yenilenir.', j.limit) : j.error === 'global' ? tf('Sitenin bugünkü yapay zekâ kapasitesi doldu, yarın tekrar dene.') : tf('Yorum alınamadı, biraz sonra tekrar dene.');
+      out.textContent = msg; return;
+    }
+    try { localStorage.setItem(aiKey(), JSON.stringify({ t: Date.now(), text: j.text })); } catch (_) {}
+    showAI(j.text, false);
+    if (Number.isFinite(j.left)) toast(tf('Bugün {0} yapay zekâ yorumu hakkın kaldı', j.left), '');
+  } catch (e) { out.textContent = tf('Yorum alınamadı, biraz sonra tekrar dene.'); }
+  finally { go.disabled = false; }
 }
