@@ -1,0 +1,92 @@
+// Bildirim ve Telegram metinleri: kullanıcının sitede seçtiği dilde
+export const LOC = { tr: "tr-TR", en: "en-GB", fr: "fr-FR", hi: "hi-IN", zh: "zh-CN", ko: "ko-KR" };
+const M = {
+  tr: {
+    up: "Fiyat alarm seviyene ulaştı. Şu an: {0}", down: "Fiyat alarm seviyene düştü. Şu an: {0}",
+    testT: "✅ TrendTakip bildirimleri açık", testB: "Fiyat alarmların tetiklenince buraya bildirim gelecek.",
+    tgTestT: "✅ TrendTakip Telegram testi", tgTestB: "Alarmların buraya da gelecek.",
+    open: "📈 Grafiği aç", smart: "Akıllı uyarı", kapMoreT: "📢 KAP: {0} bildirim daha", kapMoreB: "Takvim & KAP bölümünde hepsini gör.",
+    linked: "✅ TrendTakip hesabın bağlandı! Fiyat alarmların tetiklenince buraya mesaj gelecek.\n\nBağlantıyı kesmek için /stop yaz.",
+    expired: "⚠️ Bu bağlantının süresi dolmuş. Sitede Hesabım → Telegram'ı bağla'ya tekrar bas.",
+    stopped: "🔕 Bağlantı kesildi. Artık alarm mesajı gelmeyecek.",
+    hello: "👋 Ben TrendTakip alarm botuyum. Hesabını bağlamak için sitede Hesabım → Telegram'ı bağla'ya bas.\nhttps://knkview.vercel.app",
+    yes: "evet", no: "hayır",
+  },
+  en: {
+    up: "Price reached your alert level. Now: {0}", down: "Price fell to your alert level. Now: {0}",
+    testT: "✅ TrendTakip notifications on", testB: "You'll be notified here when your price alerts trigger.",
+    tgTestT: "✅ TrendTakip Telegram test", tgTestB: "Your alerts will arrive here too.",
+    open: "📈 Open chart", smart: "Smart alert", kapMoreT: "📢 KAP: {0} more filings", kapMoreB: "See them all in Calendar & KAP.",
+    linked: "✅ Your TrendTakip account is connected! You'll get a message here when your price alerts trigger.\n\nSend /stop to disconnect.",
+    expired: "⚠️ This link has expired. On the site, tap My account → Connect Telegram again.",
+    stopped: "🔕 Disconnected. You won't receive alert messages anymore.",
+    hello: "👋 I'm the TrendTakip alert bot. To connect your account, tap My account → Connect Telegram on the site.\nhttps://knkview.vercel.app",
+    yes: "yes", no: "no",
+  },
+  fr: {
+    up: "Le prix a atteint votre niveau d'alerte. Actuel : {0}", down: "Le prix est descendu à votre niveau d'alerte. Actuel : {0}",
+    testT: "✅ Notifications TrendTakip activées", testB: "Vous serez prévenu ici quand vos alertes de prix se déclencheront.",
+    tgTestT: "✅ Test Telegram TrendTakip", tgTestB: "Vos alertes arriveront aussi ici.",
+    open: "📈 Ouvrir le graphique", smart: "Alerte intelligente", kapMoreT: "📢 KAP : {0} annonces de plus", kapMoreB: "Voyez-les toutes dans Calendrier & KAP.",
+    linked: "✅ Votre compte TrendTakip est connecté ! Vous recevrez un message ici quand vos alertes se déclencheront.\n\nEnvoyez /stop pour déconnecter.",
+    expired: "⚠️ Ce lien a expiré. Sur le site, touchez Mon compte → Connecter Telegram.",
+    stopped: "🔕 Déconnecté. Vous ne recevrez plus de messages d'alerte.",
+    hello: "👋 Je suis le bot d'alertes TrendTakip. Pour connecter votre compte, touchez Mon compte → Connecter Telegram sur le site.\nhttps://knkview.vercel.app",
+    yes: "oui", no: "non",
+  },
+  hi: {
+    up: "कीमत आपके अलर्ट स्तर पर पहुँची। अभी: {0}", down: "कीमत आपके अलर्ट स्तर तक गिरी। अभी: {0}",
+    testT: "✅ TrendTakip सूचनाएँ चालू", testB: "प्राइस अलर्ट ट्रिगर होने पर आपको यहाँ सूचना मिलेगी।",
+    tgTestT: "✅ TrendTakip Telegram टेस्ट", tgTestB: "आपके अलर्ट यहाँ भी आएँगे।",
+    open: "📈 चार्ट खोलें", smart: "स्मार्ट अलर्ट", kapMoreT: "📢 KAP: {0} और घोषणाएँ", kapMoreB: "सभी को कैलेंडर और KAP में देखें।",
+    linked: "✅ आपका TrendTakip खाता जुड़ गया! प्राइस अलर्ट ट्रिगर होने पर यहाँ मैसेज आएगा।\n\nडिस्कनेक्ट करने के लिए /stop भेजें।",
+    expired: "⚠️ यह लिंक एक्सपायर हो गया है। साइट पर मेरा खाता → Telegram जोड़ें फिर से दबाएँ।",
+    stopped: "🔕 डिस्कनेक्ट हो गया। अब अलर्ट मैसेज नहीं आएँगे।",
+    hello: "👋 मैं TrendTakip अलर्ट बॉट हूँ। खाता जोड़ने के लिए साइट पर मेरा खाता → Telegram जोड़ें दबाएँ।\nhttps://knkview.vercel.app",
+    yes: "हाँ", no: "नहीं",
+  },
+  zh: {
+    up: "价格已达到您的提醒价位。当前：{0}", down: "价格已跌至您的提醒价位。当前：{0}",
+    testT: "✅ TrendTakip 通知已开启", testB: "价格提醒触发时，您会在这里收到通知。",
+    tgTestT: "✅ TrendTakip Telegram 测试", tgTestB: "您的提醒也会发送到这里。",
+    open: "📈 打开图表", smart: "智能提醒", kapMoreT: "📢 KAP：还有 {0} 条公告", kapMoreB: "在“日历与 KAP”中查看全部。",
+    linked: "✅ 您的 TrendTakip 账户已连接！价格提醒触发时会在这里收到消息。\n\n发送 /stop 可断开连接。",
+    expired: "⚠️ 此链接已过期。请在网站上再次点击“我的账户 → 连接 Telegram”。",
+    stopped: "🔕 已断开连接。您将不再收到提醒消息。",
+    hello: "👋 我是 TrendTakip 提醒机器人。要连接账户，请在网站上点击“我的账户 → 连接 Telegram”。\nhttps://knkview.vercel.app",
+    yes: "是", no: "否",
+  },
+  ko: {
+    up: "가격이 알림 가격에 도달했습니다. 현재: {0}", down: "가격이 알림 가격까지 떨어졌습니다. 현재: {0}",
+    testT: "✅ TrendTakip 알림 켜짐", testB: "가격 알림이 발동되면 여기로 알림이 옵니다.",
+    tgTestT: "✅ TrendTakip 텔레그램 테스트", tgTestB: "알림이 여기로도 전송됩니다.",
+    open: "📈 차트 열기", smart: "스마트 알림", kapMoreT: "📢 KAP: 공시 {0}건 더", kapMoreB: "'캘린더 & KAP'에서 모두 확인하세요.",
+    linked: "✅ TrendTakip 계정이 연결되었습니다! 가격 알림이 발동되면 여기로 메시지가 옵니다.\n\n연결을 끊으려면 /stop 을 보내세요.",
+    expired: "⚠️ 이 링크는 만료되었습니다. 사이트에서 내 계정 → 텔레그램 연결을 다시 누르세요.",
+    stopped: "🔕 연결이 끊어졌습니다. 더 이상 알림 메시지가 오지 않습니다.",
+    hello: "👋 TrendTakip 알림 봇입니다. 계정을 연결하려면 사이트에서 내 계정 → 텔레그램 연결을 누르세요.\nhttps://knkview.vercel.app",
+    yes: "예", no: "아니요",
+  },
+};
+// akıllı uyarı alan adları
+const F = {
+  p: { tr: "Fiyat", en: "Price", fr: "Prix", hi: "कीमत", zh: "价格", ko: "가격" },
+  rsi: { tr: "RSI (14)", en: "RSI (14)", fr: "RSI (14)", hi: "RSI (14)", zh: "RSI (14)", ko: "RSI (14)" },
+  ch1: { tr: "Günlük değişim", en: "Daily change", fr: "Variation journalière", hi: "दैनिक बदलाव", zh: "日涨跌幅", ko: "일간 변동" },
+  ch5: { tr: "1 haftalık değişim", en: "1-week change", fr: "Variation sur 1 semaine", hi: "1 हफ़्ते का बदलाव", zh: "1周涨跌幅", ko: "1주 변동" },
+  ch21: { tr: "1 aylık değişim", en: "1-month change", fr: "Variation sur 1 mois", hi: "1 महीने का बदलाव", zh: "1个月涨跌幅", ko: "1개월 변동" },
+  ch63: { tr: "3 aylık değişim", en: "3-month change", fr: "Variation sur 3 mois", hi: "3 महीने का बदलाव", zh: "3个月涨跌幅", ko: "3개월 변동" },
+  volR: { tr: "Hacim / 20g ort.", en: "Volume / 20-day avg", fr: "Volume / moy. 20 j", hi: "वॉल्यूम / 20 दिन औसत", zh: "成交量 / 20日均量", ko: "거래량 / 20일 평균" },
+  cmf: { tr: "Para akışı (CMF)", en: "Money flow (CMF)", fr: "Flux monétaire (CMF)", hi: "मनी फ़्लो (CMF)", zh: "资金流 (CMF)", ko: "자금 흐름 (CMF)" },
+  mfi: { tr: "Para akışı endeksi (MFI)", en: "Money flow index (MFI)", fr: "Indice de flux (MFI)", hi: "मनी फ़्लो इंडेक्स (MFI)", zh: "资金流量指数 (MFI)", ko: "자금 흐름 지수 (MFI)" },
+  dHi: { tr: "52h zirveye uzaklık", en: "Distance to 52-wk high", fr: "Écart au plus haut 52 sem.", hi: "52 हफ़्ते उच्च से दूरी", zh: "距52周高点", ko: "52주 고점 대비" },
+  atrPct: { tr: "Günlük oynaklık", en: "Daily volatility", fr: "Volatilité journalière", hi: "दैनिक अस्थिरता", zh: "日波动率", ko: "일간 변동성" },
+  score: { tr: "Teknik skor", en: "Technical score", fr: "Score technique", hi: "तकनीकी स्कोर", zh: "技术评分", ko: "기술 점수" },
+  aboveE50: { tr: "Fiyat 50g ortalama üstünde", en: "Price above 50-day avg", fr: "Prix au-dessus de la moy. 50 j", hi: "कीमत 50 दिन औसत से ऊपर", zh: "价格高于50日均线", ko: "가격 50일 평균 위" },
+  aboveE200: { tr: "Fiyat 200g ortalama üstünde", en: "Price above 200-day avg", fr: "Prix au-dessus de la moy. 200 j", hi: "कीमत 200 दिन औसत से ऊपर", zh: "价格高于200日均线", ko: "가격 200일 평균 위" },
+  macdUp: { tr: "MACD pozitif", en: "MACD positive", fr: "MACD positif", hi: "MACD सकारात्मक", zh: "MACD 为正", ko: "MACD 양수" },
+};
+export const lg = (l) => (M[l] ? l : "tr");
+export function msg(l, k, ...a) { const s = (M[lg(l)][k] ?? M.tr[k]) as string; return s.replace(/\{(\d+)\}/g, (_, i) => String(a[+i] ?? "")); }
+export function field(l, f, fallback) { return (F[f] && (F[f][lg(l)] || F[f].tr)) || fallback || f; }
+export const SMART_TFL = { "15m": "15m", "1h": "1h", "4h": "4h", "1G": "1D" };

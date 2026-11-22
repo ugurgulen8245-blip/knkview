@@ -1,7 +1,7 @@
 // Çoklu dil: arayüz Türkçe yazılır, seçilen dilde ekrandaki metinler sözlükten çevrilir.
 // Sözlük: /i18n/<dil>.json → { "Türkçe metin": "çeviri", "{0} gün önce": "{0} days ago", ... }
 // {0},{1}… içeren anahtarlar şablondur; yerlerine gelen değerler de ayrıca çevrilmeye çalışılır.
-export const LANGS = { tr: { n: 'Türkçe', f: '🇹🇷' }, en: { n: 'English', f: '🇬🇧' }, fr: { n: 'Français', f: '🇫🇷' }, hi: { n: 'हिन्दी', f: '🇮🇳' } };
+export const LANGS = { tr: { n: 'Türkçe', f: '🇹🇷' }, en: { n: 'English', f: '🇬🇧' }, fr: { n: 'Français', f: '🇫🇷' }, hi: { n: 'हिन्दी', f: '🇮🇳' }, zh: { n: '中文', f: '🇨🇳' }, ko: { n: '한국어', f: '🇰🇷' } };
 const KEY = 'tt_lang';
 const ORIG = new WeakMap(), ATTR = ['placeholder', 'title', 'aria-label'];
 const LETTER = /[A-Za-zÇĞİÖŞÜçğıöşüâ]{2}/;
@@ -116,5 +116,5 @@ export async function initI18n() {
   if (l !== 'tr') await setLang(l, false); else document.documentElement.lang = 'tr';
 }
 // sayı/tarih biçimi için yerel ayar
-export const locale = () => ({ tr: 'tr-TR', en: 'en-GB', fr: 'fr-FR', hi: 'hi-IN' })[lang] || 'tr-TR';
+export const locale = () => ({ tr: 'tr-TR', en: 'en-GB', fr: 'fr-FR', hi: 'hi-IN', zh: 'zh-CN', ko: 'ko-KR' })[lang] || 'tr-TR';
 export function _use(l, d) { lang = l; dict = d; tpls = compile(d); } // test/araç

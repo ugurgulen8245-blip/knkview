@@ -709,7 +709,7 @@ function parseCSV(txt) {
 import('./i18n.js').then(async (I) => {
   const sel = document.getElementById('langSel');
   if (sel) { sel.innerHTML = Object.entries(I.LANGS).map(([k, v]) => `<option value="${k}">${v.f} ${v.n}</option>`).join(''); sel.onchange = () => I.setLang(sel.value); }
-  window.addEventListener('langchange', (e) => { if (sel) sel.value = e.detail; if (window.TT) { window.TT.renderWatch && window.TT.renderWatch(true); window.TT.charts && window.TT.charts.forEach((c) => c.render && c.render()); } });
+  window.addEventListener('langchange', (e) => { if (sel) sel.value = e.detail; import('./cloud.js').then((C) => C.syncNotifLang(window.TT && window.TT.cloud)); if (window.TT) { window.TT.renderWatch && window.TT.renderWatch(true); window.TT.charts && window.TT.charts.forEach((c) => c.render && c.render()); } });
   await I.initI18n(); if (sel) sel.value = I.getLang();
 });
 window.TT = new App();

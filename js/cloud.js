@@ -40,7 +40,7 @@ export class Cloud {
   async fn(action) {
     const { data: s } = await this.sb.auth.getSession();
     if (!s.session) throw new Error('Giriş gerekli');
-    const r = await fetch(FN, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + s.session.access_token }, body: JSON.stringify({ action }) });
+    const r = await fetch(FN, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + s.session.access_token }, body: JSON.stringify({ action, lang: curLang() }) });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j.error || 'Sunucu hatası ' + r.status);
     return j;
@@ -62,6 +62,7 @@ export class Cloud {
       else { await this.pushNow(); toast('☁️ Bu cihazdaki verilerin hesabına kaydedildi', 'ok'); }
     } finally { this.applying = false; }
     await this.syncAlerts();
+    syncNotifLang(this);
     import('./smart.js').then((m) => m.syncSmart(this.app)).catch(() => {});
   }
   pushSoon() { if (!this.on || this.applying) return; clearTimeout(this.pushT); this.pushT = setTimeout(() => this.pushNow(), 1500); }
@@ -111,7 +112,7 @@ export class Cloud {
     let sub = await reg.pushManager.getSubscription();
     if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64u(publicKey) });
     const j = sub.toJSON();
-    const { error } = await this.sb.from('push_subs').upsert({ user_id: this.user.id, endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth }, { onConflict: 'endpoint' });
+    const { error } = await this.sb.from('push_subs').upsert({ user_id: this.user.id, endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth, lang: curLang() }, { onConflict: 'endpoint' });
     if (error) throw error;
     const { data: s } = await this.sb.auth.getSession();
     const r = await fetch(FN, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + s.session.access_token }, body: JSON.stringify({ action: 'test' }) });
@@ -120,6 +121,16 @@ export class Cloud {
   }
 }
 
+// bildirimlerin dili: sitede seçili dil
+function curLang() { try { const l = localStorage.getItem('tt_lang'); return ['tr', 'en', 'fr', 'hi', 'zh', 'ko'].includes(l) ? l : (document.documentElement.lang || 'tr').slice(0, 2); } catch (_) { return 'tr'; } }
+export async function syncNotifLang(cloud) {
+  if (!cloud || !cloud.on) return;
+  const l = curLang();
+  try {
+    if ('serviceWorker' in navigator) { const reg = await navigator.serviceWorker.getRegistration(); const sub = reg && (await reg.pushManager.getSubscription()); if (sub) await cloud.sb.from('push_subs').update({ lang: l }).eq('endpoint', sub.endpoint); }
+    await cloud.sb.from('tg_links').update({ lang: l }).eq('user_id', cloud.user.id);
+  } catch (_) {}
+}
 function b64u(s) {
   const p = '='.repeat((4 - (s.length % 4)) % 4), b = atob((s + p).replace(/-/g, '+').replace(/_/g, '/'));
   return Uint8Array.from(b, (c) => c.charCodeAt(0));

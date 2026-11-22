@@ -1,2 +1,5 @@
 supabase
 README.md
+i18n/_master.json
+i18n/build.mjs
+i18n/README.md

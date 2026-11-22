@@ -7,6 +7,7 @@ const FLAG = { TRY: '🇹🇷', USD: '🇺🇸', EUR: '🇪🇺', GBP: '🇬🇧
 const KAPCLS = { ODA: 'Özel durum', FR: 'Finansal rapor', DG: 'Diğer', DUY: 'Duyuru' };
 const GUN = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
 const AY = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+const MKTQ = { tr: 'borsa OR dolar OR altın OR faiz', en: 'stock market OR economy', fr: 'bourse OR marchés OR économie', hi: 'शेयर बाजार OR सेंसेक्स', zh: '股市 OR 经济', ko: '증시 OR 코스피' };
 const st = { tab: 'cal', imp: 2, cur: 'core', kapMode: 'mine', q: '', cal: null, kap: null, busy: {}, err: {} };
 let app, body;
 
@@ -23,7 +24,7 @@ export function myBist(a) {
   return [...s];
 }
 
-window.addEventListener('langchange', () => { if (body && document.getElementById('agModal')?.classList.contains('show')) render(); });
+window.addEventListener('langchange', () => { if (body && document.getElementById('agModal')?.classList.contains('show')) { render(); if (st.tab === 'news') load(); } });
 export function openAgenda(a, tab) {
   app = a; if (tab) st.tab = tab;
   body = modal('agModal', '📅 Takvim & KAP');
@@ -32,12 +33,12 @@ export function openAgenda(a, tab) {
 }
 async function load() {
   const k = st.tab;
-  if (st[k] && Date.now() - st[k].ts < (k === 'kap' ? 12e4 : 9e5)) return renderList();
+  if (st[k] && Date.now() - st[k].ts < (k === 'kap' ? 12e4 : 9e5) && (k !== 'news' || st[k].L === getLang())) return renderList();
   if (st.busy[k]) return; st.busy[k] = true; st.err[k] = ''; renderList();
   try {
     if (net.API_OK === false) throw new Error('Bu bölüm için site Vercel üzerinde çalışmalı');
-    const j = await getJSON([k === 'kap' ? '/api/kap?days=3' : '/api/calendar'], 30000);
-    st[k] = { items: j.items || [], ts: Date.now() };
+    if (k === 'news') { const L = getLang(); const j = await getJSON([`/api/news?q=${encodeURIComponent(MKTQ[L] || MKTQ.en)}&lang=${L}`], 20000); st[k] = { items: j || [], ts: Date.now(), L }; }
+    else { const j = await getJSON([k === 'kap' ? '/api/kap?days=3' : '/api/calendar'], 30000); st[k] = { items: j.items || [], ts: Date.now() }; }
   } catch (e) { st.err[k] = String(e.message || e); }
   st.busy[k] = false; renderList();
 }
@@ -51,9 +52,10 @@ function onClick(e) {
   if (e.target.closest('#agRe')) { st[st.tab] = null; load(); }
 }
 function render() {
-  const tabs = `<div class="mtabs" style="margin-bottom:10px"><button data-agt="cal" class="${st.tab === 'cal' ? 'on' : ''}">📅 Ekonomik takvim</button><button data-agt="kap" class="${st.tab === 'kap' ? 'on' : ''}">📢 KAP bildirimleri</button></div>`;
+  const tabs = `<div class="mtabs" style="margin-bottom:10px"><button data-agt="cal" class="${st.tab === 'cal' ? 'on' : ''}">📅 Ekonomik takvim</button><button data-agt="kap" class="${st.tab === 'kap' ? 'on' : ''}">📢 KAP bildirimleri</button><button data-agt="news" class="${st.tab === 'news' ? 'on' : ''}">📰 Piyasa haberleri</button></div>`;
   let ctl;
-  if (st.tab === 'cal') {
+  if (st.tab === 'news') ctl = '';
+  else if (st.tab === 'cal') {
     ctl = `<div class="seg" style="grid-template-columns:repeat(3,1fr);margin:0 0 6px">${[[3, '🔴 Yüksek'], [2, '🟠 Orta+'], [0, 'Tümü']].map(([v, l]) => `<button data-imp="${v}" class="${st.imp === v ? 'on' : ''}">${l}</button>`).join('')}</div>
       <div class="seg" style="grid-template-columns:repeat(4,1fr);margin:0 0 8px">${[['core', '🇹🇷🇺🇸🇪🇺'], ['TRY', '🇹🇷 TR'], ['USD', '🇺🇸 ABD'], ['all', '🌐 Tümü']].map(([v, l]) => `<button data-cur="${v}" class="${st.cur === v ? 'on' : ''}">${l}</button>`).join('')}</div>`;
   } else {
@@ -70,6 +72,11 @@ function renderList() {
   const k = st.tab, D = st[k];
   if (st.err[k]) { box.innerHTML = `<div class="empty" style="padding:20px">Yüklenemedi: ${esc(st.err[k])}<br><button class="closeb" id="agRe" style="margin-top:8px">Tekrar dene</button></div>`; return; }
   if (!D) { box.innerHTML = '<div class="empty" style="padding:24px">Yükleniyor…</div>'; return; }
+  if (k === 'news') {
+    if (!D.items.length) { box.innerHTML = '<div class="empty" style="padding:20px">Haber yok</div>'; return; }
+    box.innerHTML = '<div class="newsl">' + D.items.map((x) => `<a href="${esc(x.link)}" target="_blank" rel="noopener"><span class="nt">${esc(x.title)}<small>${esc(x.src || '')} · ${ago(x.t)}</small></span></a>`).join('') + '</div><p class="note small">Haberler seçtiğin dile ve bulunduğun ülkeye göre Google Haberler\'den gelir; başlıklara dokununca kaynağında açılır.</p>';
+    return;
+  }
   if (k === 'cal') {
     const core = new Set(['TRY', 'USD', 'EUR', 'CNY']);
     const items = D.items.filter((x) => (x.hol || x.imp >= st.imp) && (st.cur === 'all' || (st.cur === 'core' ? core.has(x.cur) : x.cur === st.cur)));

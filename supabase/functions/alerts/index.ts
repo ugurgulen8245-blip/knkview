@@ -8,6 +8,7 @@
 import webpush from "npm:web-push@3.6.7";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { metrics } from "./metrics.js";
+import { LOC, lg, msg, field } from "./msgs.ts";
 
 const SB = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
 const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info", "Access-Control-Allow-Methods": "GET, POST, OPTIONS" };
@@ -29,15 +30,17 @@ async function vapid() {
   return VAPID;
 }
 
-const fmt = (p: number) => new Intl.NumberFormat("tr-TR", { maximumFractionDigits: p >= 10 ? 2 : p >= 1 ? 3 : 6 }).format(p);
+const fmt = (p: number, l = "tr") => new Intl.NumberFormat(LOC[lg(l)], { maximumFractionDigits: p >= 10 ? 2 : p >= 1 ? 3 : 6 }).format(p);
 
-async function sendToUser(userId: string, payload: Record<string, unknown>) {
+type Payload = Record<string, unknown>;
+async function sendToUser(userId: string, payload: Payload | ((lang: string) => Payload)) {
   await vapid();
-  const { data: subs } = await SB.from("push_subs").select("id,endpoint,p256dh,auth").eq("user_id", userId);
+  const { data: subs } = await SB.from("push_subs").select("id,endpoint,p256dh,auth,lang").eq("user_id", userId);
   let sent = 0;
   for (const s of subs ?? []) {
     try {
-      await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, JSON.stringify(payload), { TTL: 3600 });
+      const pl = typeof payload === "function" ? payload(s.lang || "tr") : payload;
+      await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, JSON.stringify(pl), { TTL: 3600 });
       sent++;
     } catch (e) {
       const code = (e as { statusCode?: number }).statusCode;
@@ -60,12 +63,15 @@ async function tg(method: string, body: Record<string, unknown>) {
 let BOT: string | null = null;
 async function botName() { if (!BOT) BOT = (await tg("getMe", {})).username as string; return BOT; }
 const escH = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-async function sendTg(userId: string, title: string, body: string, path = "/") {
+type Txt = string | ((lang: string) => string);
+const txt = (x: Txt, l: string) => (typeof x === "function" ? x(l) : x);
+async function sendTg(userId: string, title: Txt, body: Txt, path = "/") {
   if (!TG()) return 0;
-  const { data } = await SB.from("tg_links").select("chat_id").eq("user_id", userId).maybeSingle();
+  const { data } = await SB.from("tg_links").select("chat_id,lang").eq("user_id", userId).maybeSingle();
   if (!data) return 0;
+  const l = data.lang || "tr";
   try {
-    await tg("sendMessage", { chat_id: data.chat_id, parse_mode: "HTML", text: `<b>${escH(title)}</b>\n${escH(body)}`, reply_markup: { inline_keyboard: [[{ text: "📈 Grafiği aç", url: "https://knkview.vercel.app" + path }]] } });
+    await tg("sendMessage", { chat_id: data.chat_id, parse_mode: "HTML", text: `<b>${escH(txt(title, l))}</b>\n${escH(txt(body, l))}`, reply_markup: { inline_keyboard: [[{ text: msg(l, "open"), url: "https://knkview.vercel.app" + path }]] } });
     return 1;
   } catch (e) {
     if (/blocked|chat not found|deactivated/i.test(String(e))) await SB.from("tg_links").delete().eq("user_id", userId);
@@ -76,20 +82,24 @@ async function sendTg(userId: string, title: string, body: string, path = "/") {
 async function tgUpdate(u: any) {
   const m = u?.message; if (!m?.text || !m.chat?.id) return;
   const chat = m.chat.id, text = String(m.text).trim();
+  const { data: ex } = await SB.from("tg_links").select("lang").eq("chat_id", chat).maybeSingle();
+  let l = ex?.lang || lg(String(m.from?.language_code || "tr").slice(0, 2));
   const st = text.match(/^\/start(?:@\w+)?\s+([a-f0-9]{24})$/i);
   if (st) {
-    const { data: uid } = await SB.rpc("tg_use_code", { p_code: st[1].toLowerCase() });
-    if (!uid) { await tg("sendMessage", { chat_id: chat, text: "⚠️ Bu bağlantının süresi dolmuş. Sitede Hesabım → Telegram'ı bağla'ya tekrar bas." }); return; }
-    await SB.from("tg_links").upsert({ user_id: uid, chat_id: chat, username: m.from?.username ?? null });
-    await tg("sendMessage", { chat_id: chat, text: "✅ TrendTakip hesabın bağlandı! Fiyat alarmların tetiklenince buraya mesaj gelecek.\n\nBağlantıyı kesmek için /stop yaz." });
+    const { data: rows } = await SB.rpc("tg_use_code", { p_code: st[1].toLowerCase() });
+    const row = Array.isArray(rows) ? rows[0] : rows;
+    if (!row?.user_id) { await tg("sendMessage", { chat_id: chat, text: msg(l, "expired") }); return; }
+    l = row.lang || l;
+    await SB.from("tg_links").upsert({ user_id: row.user_id, chat_id: chat, username: m.from?.username ?? null, lang: lg(l) });
+    await tg("sendMessage", { chat_id: chat, text: msg(l, "linked") });
     return;
   }
   if (/^\/stop/i.test(text)) {
     await SB.from("tg_links").delete().eq("chat_id", chat);
-    await tg("sendMessage", { chat_id: chat, text: "🔕 Bağlantı kesildi. Artık alarm mesajı gelmeyecek." });
+    await tg("sendMessage", { chat_id: chat, text: msg(l, "stopped") });
     return;
   }
-  await tg("sendMessage", { chat_id: chat, text: "👋 Ben TrendTakip alarm botuyum. Hesabını bağlamak için sitede Hesabım → Telegram'ı bağla'ya bas.\nhttps://knkview.vercel.app" });
+  await tg("sendMessage", { chat_id: chat, text: msg(l, "hello") });
 }
 async function userOf(req: Request) {
   const token = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
@@ -131,8 +141,9 @@ async function check() {
     const { data: upd } = await SB.from("alerts").update({ triggered_at: new Date().toISOString() }).eq("id", a.id).is("triggered_at", null).select("id");
     if (!upd?.length) continue; // başka bir çalışma zaten tetikledi
     fired++;
-    const title = `🔔 ${a.sym} ${a.dir === "up" ? "↑" : "↓"} ${fmt(a.price)}`, body = `Fiyat alarm seviyene ${a.dir === "up" ? "ulaştı" : "düştü"}. Şu an: ${fmt(p)}`, path = "/?s=" + encodeURIComponent(a.sym);
-    await sendToUser(a.user_id, { title, body, tag: "alert-" + a.id, url: path });
+    const path = "/?s=" + encodeURIComponent(a.sym);
+    const title = (l: string) => `🔔 ${a.sym} ${a.dir === "up" ? "↑" : "↓"} ${fmt(a.price, l)}`, body = (l: string) => msg(l, a.dir === "up" ? "up" : "down", fmt(p, l));
+    await sendToUser(a.user_id, (l) => ({ title: title(l), body: body(l), tag: "alert-" + a.id, url: path }));
     await sendTg(a.user_id, title, body, path);
   }
   return { open: alerts.length, fired };
@@ -167,12 +178,12 @@ function combine(A: Bar[], B: Bar[], k: number) {
   for (const a of A) { while (j + 1 < B.length && B[j + 1].t <= a.t) j++; const b = B[j]; if (!b || b.t > a.t + 864e5 * 3) continue; const o = a.o * b.o * k, c = a.c * b.c * k; out.push({ t: a.t, o, c, h: Math.max(a.h * b.h * k, o, c), l: Math.min(a.l * b.l * k, o, c), v: a.v }); }
   return out;
 }
-const nfx = (v: number, d = 2) => new Intl.NumberFormat("tr-TR", { maximumFractionDigits: d }).format(v);
+const nfx = (v: number, l = "tr", d = 2) => new Intl.NumberFormat(LOC[lg(l)], { maximumFractionDigits: d }).format(v);
 function condRes(m: Record<string, number>, c: any) {
-  const x = m[c.f], label = String(c.t || c.f).slice(0, 60);
-  if (c.op === "=") { const ok = !!x === !!c.v; return { ok, txt: `${label}: ${x ? "evet" : "hayır"}` }; }
+  const x = m[c.f], label = (l: string) => field(l, c.f, String(c.t || c.f).slice(0, 60));
+  if (c.op === "=") { const ok = !!x === !!c.v; return { ok, txt: (l: string) => `${label(l)}: ${msg(l, x ? "yes" : "no")}` }; }
   const ok = Number.isFinite(x) && (c.op === "<" ? x < c.v : x > c.v), u = c.u === "%" ? "%" : c.u === "x" ? "x" : "";
-  return { ok, txt: `${label} ${Number.isFinite(x) ? (c.f === "p" ? fmt(x) : nfx(x)) + u : "—"} ${c.op} ${c.f === "p" ? fmt(c.v) : nfx(c.v)}${u}` };
+  return { ok, txt: (l: string) => `${label(l)} ${Number.isFinite(x) ? (c.f === "p" ? fmt(x, l) : nfx(x, l)) + u : "—"} ${c.op} ${c.f === "p" ? fmt(c.v, l) : nfx(c.v, l)}${u}` };
 }
 async function smartCheck() {
   if (new Date().getUTCMinutes() % 2 === 0) return { skip: true };
@@ -191,12 +202,12 @@ async function smartCheck() {
       const res = (a.conds as any[]).map((c) => condRes(m as any, c)), all = res.every((r) => r.ok), state = res.map((r) => r.ok);
       const cool = Math.max(36e5, TFMS[a.tf] || 36e5), last = a.last_fired ? Date.parse(a.last_fired) : 0;
       if (all && Date.now() - last > cool) {
-        const why = res.map((r) => "✓ " + r.txt).join(" · ");
-        await SB.from("smart_alerts").update({ state, last_fired: new Date().toISOString(), last_why: why, enabled: !!a.repeat }).eq("id", a.id);
-        const tfl = ({ "15m": "15dk", "1h": "1sa", "4h": "4sa", "1G": "1G" } as Record<string, string>)[a.tf];
-        const title = `🧠 ${a.sym} (${tfl}) · ${a.name || "Akıllı uyarı"}`, path = "/?s=" + encodeURIComponent(a.sym);
-        await sendToUser(a.user_id, { title, body: why, tag: "smart-" + a.id, url: path });
-        await sendTg(a.user_id, title, why.replace(/ · /g, "\n"), path);
+        const why = (l: string) => res.map((r) => "✓ " + r.txt(l)).join(" · ");
+        await SB.from("smart_alerts").update({ state, last_fired: new Date().toISOString(), last_why: why("tr"), enabled: !!a.repeat }).eq("id", a.id);
+        const tfl = ({ "15m": "15m", "1h": "1h", "4h": "4h", "1G": "1D" } as Record<string, string>)[a.tf];
+        const title = (l: string) => `🧠 ${a.sym} (${tfl}) · ${a.name || msg(l, "smart")}`, path = "/?s=" + encodeURIComponent(a.sym);
+        await sendToUser(a.user_id, (l) => ({ title: title(l), body: why(l), tag: "smart-" + a.id, url: path }));
+        await sendTg(a.user_id, title, (l) => why(l).replace(/ · /g, "\n"), path);
         fired++;
       } else if (JSON.stringify(state) !== JSON.stringify(a.state)) await SB.from("smart_alerts").update({ state }).eq("id", a.id);
     } catch (e) { console.error("smart", a.id, String(e)); }
@@ -225,7 +236,7 @@ async function kapCheck() {
     if (!hit.length) continue;
     const list = hit.length > 4 ? [...hit.slice(0, 3), null] : hit;
     for (const x of list) {
-      if (!x) { await sendToUser(u.user_id, { title: `📢 KAP: ${hit.length - 3} bildirim daha`, body: "Takvim & KAP bölümünde hepsini gör.", tag: "kap-more", url: "/" }); await sendTg(u.user_id, `📢 KAP: ${hit.length - 3} bildirim daha`, "Takvim & KAP bölümünde hepsini gör."); continue; }
+      if (!x) { const n = hit.length - 3; await sendToUser(u.user_id, (l) => ({ title: msg(l, "kapMoreT", n), body: msg(l, "kapMoreB"), tag: "kap-more", url: "/" })); await sendTg(u.user_id, (l) => msg(l, "kapMoreT", n), (l) => msg(l, "kapMoreB")); continue; }
       const code = (x.codes as string[]).find((c) => mine.has(c)) || x.codes[0];
       const title = `📢 ${code} · KAP`, body = `${x.subj}${x.sum ? " — " + String(x.sum).slice(0, 160) : ""}`;
       await sendToUser(u.user_id, { title, body, tag: "kap-" + x.id, url: x.url });
@@ -269,7 +280,7 @@ Deno.serve(async (req) => {
       const user = await userOf(req);
       if (!user) return json({ error: "giriş gerekli" }, 401);
       if (body.action === "test") {
-        const sent = await sendToUser(user.id, { title: "✅ TrendTakip bildirimleri açık", body: "Fiyat alarmların tetiklenince buraya bildirim gelecek.", tag: "test", url: "/" });
+        const sent = await sendToUser(user.id, (l) => ({ title: msg(l, "testT"), body: msg(l, "testB"), tag: "test", url: "/" }));
         return json({ sent });
       }
       if (!TG()) return json({ error: "Telegram botu henüz kurulmadı" }, 503);
@@ -278,14 +289,14 @@ Deno.serve(async (req) => {
         return json({ linked: !!data, username: data?.username ?? null, bot: await botName() });
       }
       if (body.action === "tg_link") {
-        const { data: code, error } = await SB.rpc("tg_new_code", { p_user: user.id });
+        const { data: code, error } = await SB.rpc("tg_new_code", { p_user: user.id, p_lang: lg(String(body.lang || "tr")) });
         if (error) throw error;
         const bot = await botName();
         return json({ bot, url: `https://t.me/${bot}?start=${code}` });
       }
       if (body.action === "tg_unlink") { await SB.from("tg_links").delete().eq("user_id", user.id); return json({ ok: true }); }
       if (body.action === "tg_test") {
-        const n = await sendTg(user.id, "✅ TrendTakip Telegram testi", "Alarmların buraya da gelecek.");
+        const n = await sendTg(user.id, (l) => msg(l, "tgTestT"), (l) => msg(l, "tgTestB"));
         return json({ sent: n });
       }
     }

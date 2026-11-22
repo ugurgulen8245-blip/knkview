@@ -4,7 +4,7 @@ import { symDef, getJSON, net } from './data.js';
 import { series } from './tools.js';
 import { metrics, flowFlags } from '/lib/metrics.mjs';
 import * as IND from './ind.js';
-import { tf } from './i18n.js';
+import { tf, getLang } from './i18n.js';
 
 const POS = ['yüksel', 'rekor', 'kâr art', 'kar art', 'net kâr', 'büyüme', 'büyüdü', 'temettü', 'anlaşma', 'ihale', 'kazandı', 'sözleşme', 'onay', 'artış', 'güçlü', 'hedef fiyat', 'al tavsiye', 'pozitif', 'toparlan', 'zirve', 'ihracat', 'ortaklık', 'bedelsiz', 'geri alım', 'iyileş', 'teşvik', 'sipariş', 'yatırım yap', 'rally', 'surge', 'soar', 'jump', 'gain', 'rise', 'rises', 'beat', 'record', 'upgrade', 'profit', 'growth', 'buyback', 'dividend', 'approv', 'deal', 'partnership', 'bullish', 'strong', 'outperform', 'inflow', 'etf approval'];
 const NEG = ['düş', 'zarar', 'kayıp', 'ceza', 'soruşturma', 'dava', 'iflas', 'konkordato', 'satış baskı', 'geriled', 'negatif', 'uyarı', 'sat tavsiye', 'çöküş', 'çakıl', 'borç', 'temerrüt', 'yaptırım', 'grev', 'iptal', 'gözaltı', 'hack', 'erişim engel', 'fall', 'drop', 'plunge', 'slump', 'miss', 'loss', 'downgrade', 'lawsuit', 'probe', 'fine', 'bearish', 'weak', 'sell-off', 'selloff', 'recall', 'ban', 'bankrupt', 'layoff', 'crash', 'outflow', 'hack', 'investigation', 'decline', 'tumble'];
@@ -25,13 +25,19 @@ function bench(sd) {
   if (sd.src === 'yahoo' && !y.startsWith('^') && !y.includes('=') && !y.includes('.')) return symDef('SPX');
   return null;
 }
+const KW = {
+  crypto: { tr: 'kripto', en: 'crypto', fr: 'crypto', hi: 'क्रिप्टो', zh: '加密货币', ko: '코인' },
+  gold: { tr: 'altın fiyatları', en: 'gold price', fr: "prix de l'or", hi: 'सोने का भाव', zh: '金价', ko: '금값' },
+  silver: { tr: 'gümüş fiyatı', en: 'silver price', fr: "prix de l'argent", hi: 'चांदी का भाव', zh: '银价', ko: '은값' },
+  stock: { tr: 'hisse', en: 'stock', fr: 'action', hi: 'शेयर', zh: '股票', ko: '주식' },
+};
 function newsQuery(sd) {
-  const y = sd.y || '';
-  if (sd.src === 'binance') return { q: (sd.n && sd.n !== sd.s.replace(/USDT$/, '') ? sd.n : sd.s.replace(/USDT$/, '')) + ' kripto', lang: 'tr' };
-  if (sd.src === 'derived') return { q: sd.s.includes('GUMUS') ? 'gümüş fiyatı' : 'altın fiyatları', lang: 'tr' };
-  if (y.endsWith('.IS')) return { q: `${sd.s} hisse`, lang: 'tr', y };
-  if (y.startsWith('^') || y.includes('=')) return { q: sd.n || sd.s, lang: 'tr', y };
-  return { q: (sd.n || sd.s).replace(/,? (Inc\.?|Corp\.?|Corporation|plc|Ltd\.?|Holdings?)$/i, ''), lang: 'en', y };
+  const y = sd.y || '', L = getLang();
+  if (sd.src === 'binance') return { q: (sd.n && sd.n !== sd.s.replace(/USDT$/, '') ? sd.n : sd.s.replace(/USDT$/, '')) + ' ' + KW.crypto[L], lang: L };
+  if (sd.src === 'derived') return { q: KW[sd.s.includes('GUMUS') ? 'silver' : 'gold'][L], lang: L };
+  if (y.endsWith('.IS')) return L === 'tr' ? { q: `${sd.s} hisse`, lang: 'tr', y } : { q: `${(sd.n && sd.n !== 'BIST hissesi' ? sd.n : sd.s)} ${KW.stock[L]}`, lang: L, y };
+  if (y.startsWith('^') || y.includes('=')) return { q: sd.n || sd.s, lang: L, y };
+  return { q: (sd.n || sd.s).replace(/,? (Inc\.?|Corp\.?|Corporation|plc|Ltd\.?|Holdings?)$/i, ''), lang: L, y };
 }
 function levels(d) {
   const n = d.length, H = [], L = [], k = 3;
