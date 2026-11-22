@@ -5500,5 +5500,19 @@
 "hi": "दैनिक या साप्ताहिक सीमा पार होने पर डेमो खाता नए ट्रेड खोलना बंद कर देता है — ताकि नुकसान के बाद \"बदले का ट्रेड\" न हो। पोज़िशन आकार के लिए ट्रेड टैब का लाभ/हानि कैलकुलेटर इस्तेमाल करें।",
 "zh": "当超过每日或每周限额时，模拟账户会停止开新仓 — 以防亏损后“报复性交易”。仓位规模请使用交易标签中的盈亏计算器。",
 "ko": "일일 또는 주간 한도를 넘으면 모의 계좌가 새 거래를 멈춥니다 — 손실 후 '복수 매매'를 막기 위해서입니다. 포지션 크기는 거래 탭의 손익 계산기를 쓰세요."
+},
+"📰 Piyasa haberleri": {
+"en": "📰 Market news",
+"fr": "📰 Actualités des marchés",
+"hi": "📰 बाज़ार की ख़बरें",
+"zh": "📰 市场新闻",
+"ko": "📰 시장 뉴스"
+},
+"Haberler seçtiğin dile ve bulunduğun ülkeye göre Google Haberler'den gelir; başlıklara dokununca kaynağında açılır.": {
+"en": "News comes from Google News based on your language and country; tap a headline to open it at the source.",
+"fr": "Les actualités viennent de Google Actualités selon votre langue et votre pays ; touchez un titre pour l'ouvrir à la source.",
+"hi": "ख़बरें आपकी भाषा और देश के हिसाब से Google News से आती हैं; शीर्षक पर टैप करें तो स्रोत पर खुलेगी।",
+"zh": "新闻来自 Google 新闻，依据你的语言和所在国家；点击标题可在来源处打开。",
+"ko": "뉴스는 언어와 국가에 맞춰 Google 뉴스에서 가져옵니다. 제목을 누르면 원문이 열립니다."
 }
 }
