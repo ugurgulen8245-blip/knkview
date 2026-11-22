@@ -493,7 +493,7 @@ class App {
       box.innerHTML = `<div class="lbl" style="display:flex;justify-content:space-between"><span>KÂR / ZARAR HESAPLAYICI · ${esc(sym)}</span>${V.d ? '<span style="color:var(--ac)">● grafikteki plan</span>' : ''}</div>
         <div class="seg two" style="margin:0 0 10px"><button data-c="long" class="${long ? 'on lg' : ''}">▲ Long (Al)</button><button data-c="short" class="${!long ? 'on sh' : ''}">▼ Short (Sat)</button></div>
         <div class="cgrid">
-          <label>Giriş<input data-f="e" inputmode="decimal" value="${dp(V.e)}"></label>
+          <label>Giriş fiyatı<input data-f="e" inputmode="decimal" value="${dp(V.e)}"></label>
           <label class="g">Hedef<input data-f="tp" inputmode="decimal" value="${dp(V.tp)}"></label>
           <label class="r">Stop<input data-f="sl" inputmode="decimal" value="${dp(V.sl)}"></label>
           <label>Sermaye $<input data-f="cap" inputmode="decimal" value="${C.cap}"></label>
@@ -706,4 +706,10 @@ function parseCSV(txt) {
   out.sort((a, b) => a.t - b.t); return out;
 }
 
+import('./i18n.js').then(async (I) => {
+  const sel = document.getElementById('langSel');
+  if (sel) { sel.innerHTML = Object.entries(I.LANGS).map(([k, v]) => `<option value="${k}">${v.f} ${v.n}</option>`).join(''); sel.onchange = () => I.setLang(sel.value); }
+  window.addEventListener('langchange', (e) => { if (sel) sel.value = e.detail; if (window.TT) { window.TT.renderWatch && window.TT.renderWatch(true); window.TT.charts && window.TT.charts.forEach((c) => c.render && c.render()); } });
+  await I.initI18n(); if (sel) sel.value = I.getLang();
+});
 window.TT = new App();

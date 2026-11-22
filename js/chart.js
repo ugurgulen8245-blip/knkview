@@ -1,5 +1,5 @@
 // Grafik motoru: her hücre bağımsız bir Chart örneğidir
-import { TF, TFL, AYLAR, fP, fV, fUSD, fPct, dec, pad, clamp, toast } from './util.js';
+import { TF, TFL, MON, fP, fV, fUSD, fPct, dec, pad, clamp, toast } from './util.js';
 import { symDef, live, gen, simify, resample, hooks, net, binanceKlines, yahooKlines, derivedKlines, BINT, BWS } from './data.js';
 import * as IND from './ind.js';
 
@@ -152,10 +152,10 @@ export class Chart {
   zoomAt(x, nb) { nb = clamp(nb, 2, 60); const i = this.idxOf(x); this.V.barW = nb; const ri = i - 1 + (this.L.plotW - x) / nb + 0.5; this.V.right = this.last() - ri; this.clampView(); this.dirty = true; }
   tLabel(t, full) {
     const d = new Date(t), ms = this.ms;
-    if (full) return ms >= 864e5 ? `${pad(d.getDate())} ${AYLAR[d.getMonth()]} ${String(d.getFullYear()).slice(2)}` : `${pad(d.getDate())} ${AYLAR[d.getMonth()]} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-    if (ms >= 6048e5) return d.getMonth() === 0 ? String(d.getFullYear()) : AYLAR[d.getMonth()];
-    if (ms >= 864e5) return d.getDate() <= 1 ? AYLAR[d.getMonth()] : String(d.getDate());
-    if (d.getHours() === 0 && d.getMinutes() === 0) return `${d.getDate()} ${AYLAR[d.getMonth()]}`;
+    if (full) return ms >= 864e5 ? `${pad(d.getDate())} ${MON(d.getMonth())} ${String(d.getFullYear()).slice(2)}` : `${pad(d.getDate())} ${MON(d.getMonth())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    if (ms >= 6048e5) return d.getMonth() === 0 ? String(d.getFullYear()) : MON(d.getMonth());
+    if (ms >= 864e5) return d.getDate() <= 1 ? MON(d.getMonth()) : String(d.getDate());
+    if (d.getHours() === 0 && d.getMinutes() === 0) return `${d.getDate()} ${MON(d.getMonth())}`;
     return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
   countdown() {

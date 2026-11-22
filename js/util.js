@@ -6,8 +6,11 @@ export const TF = { '1m': 6e4, '5m': 3e5, '15m': 9e5, '1h': 36e5, '4h': 144e5, '
 export const TFL = { '1m': '1dk', '5m': '5dk', '15m': '15dk', '1h': '1sa', '4h': '4sa', '1G': '1G', '1H': '1H' };
 export const AYLAR = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
 
+import { locale } from './i18n.js';
 const nfc = {};
-export const nf = (d) => nfc[d] || (nfc[d] = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: d, maximumFractionDigits: d }));
+export const nf = (d) => { const L = locale(), k = L + d; return nfc[k] || (nfc[k] = new Intl.NumberFormat(L, { minimumFractionDigits: d, maximumFractionDigits: d })); };
+const monc = {};
+export const MON = (i) => { const L = locale(); if (L === 'tr-TR') return AYLAR[i]; const a = monc[L] || (monc[L] = Array.from({ length: 12 }, (_, m) => new Intl.DateTimeFormat(L, { month: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(2026, m, 15))).replace('.', ''))); return a[i]; };
 export const dec = (p) => { p = Math.abs(p); return p >= 1000 ? 2 : p >= 10 ? 2 : p >= 1 ? 3 : p >= 0.1 ? 4 : 6; };
 export const fP = (p, d) => (isFinite(p) ? nf(d ?? dec(p)).format(p) : '—');
 export const fV = (v) => v >= 1e9 ? nf(2).format(v / 1e9) + 'B' : v >= 1e6 ? nf(2).format(v / 1e6) + 'M' : v >= 1e3 ? nf(1).format(v / 1e3) + 'K' : nf(0).format(v || 0);

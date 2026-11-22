@@ -366,3 +366,6 @@ details summary{cursor:pointer;font-size:12px;color:var(--tx2);margin-top:8px}
 .kc.mine{background:#8b6cff33;border-color:#8b6cff88}
 .kb{display:block;color:var(--tx);text-decoration:none;font-size:13px;line-height:1.45}
 .tag{display:inline-block;font-size:10px;font-weight:700;padding:1px 6px;border-radius:5px;background:var(--panel2);color:var(--tx2);margin-left:4px;vertical-align:1px}
+
+.langrow{display:flex;align-items:center;gap:8px;margin:0 0 10px}
+.langrow select{flex:1;background:var(--bg);color:var(--tx);border:1px solid var(--line2);border-radius:9px;padding:9px 10px;font-size:14px;font-weight:600}
