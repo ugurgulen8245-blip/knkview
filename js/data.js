@@ -18,6 +18,14 @@ export const BASE = [
   { s: 'ASELS', n: 'Aselsan', g: 'BORSA İSTANBUL', src: 'yahoo', y: 'ASELS.IS', p: 148.9, v: 0.012 },
   { s: 'BIMAS', n: 'BİM Mağazalar', g: 'BORSA İSTANBUL', src: 'yahoo', y: 'BIMAS.IS', p: 542, v: 0.009 },
   { s: 'GARAN', n: 'Garanti BBVA', g: 'BORSA İSTANBUL', src: 'yahoo', y: 'GARAN.IS', p: 130, v: 0.012 },
+  // Türkiye altın fiyatları: has (saf) altın değeri, ons fiyatı ve kurdan hesaplanır. Kuyumcu işçilik/makas farkı dahil değildir.
+  { s: 'GRAMALTIN', n: 'Gram Altın (24 ayar, has)', g: 'ALTIN & GÜMÜŞ (TL)', src: 'derived', legs: [{ src: 'binance', s: 'PAXGUSDT' }, { src: 'binance', s: 'USDTTRY' }], k: 1 / 31.1035, p: 5700, v: 0.005 },
+  { s: 'GRAM22', n: '22 Ayar Bilezik (gram, has değeri)', g: 'ALTIN & GÜMÜŞ (TL)', src: 'derived', legs: [{ src: 'binance', s: 'PAXGUSDT' }, { src: 'binance', s: 'USDTTRY' }], k: 0.9166 / 31.1035, p: 5200, v: 0.005 },
+  { s: 'CEYREK', n: 'Çeyrek Altın (has değeri)', g: 'ALTIN & GÜMÜŞ (TL)', src: 'derived', legs: [{ src: 'binance', s: 'PAXGUSDT' }, { src: 'binance', s: 'USDTTRY' }], k: 1.6075 / 31.1035, p: 9200, v: 0.005 },
+  { s: 'YARIM', n: 'Yarım Altın (has değeri)', g: 'ALTIN & GÜMÜŞ (TL)', src: 'derived', legs: [{ src: 'binance', s: 'PAXGUSDT' }, { src: 'binance', s: 'USDTTRY' }], k: 3.215 / 31.1035, p: 18400, v: 0.005 },
+  { s: 'TAM', n: 'Tam Altın (has değeri)', g: 'ALTIN & GÜMÜŞ (TL)', src: 'derived', legs: [{ src: 'binance', s: 'PAXGUSDT' }, { src: 'binance', s: 'USDTTRY' }], k: 6.43 / 31.1035, p: 36800, v: 0.005 },
+  { s: 'CUMHURIYET', n: 'Cumhuriyet Altını (has değeri)', g: 'ALTIN & GÜMÜŞ (TL)', src: 'derived', legs: [{ src: 'binance', s: 'PAXGUSDT' }, { src: 'binance', s: 'USDTTRY' }], k: 6.615 / 31.1035, p: 37800, v: 0.005 },
+  { s: 'GRAMGUMUS', n: 'Gram Gümüş (has)', g: 'ALTIN & GÜMÜŞ (TL)', src: 'derived', legs: [{ src: 'yahoo', s: 'SI=F' }, { src: 'yahoo', s: 'USDTRY=X' }], k: 1 / 31.1035, p: 65, v: 0.01 },
   { s: 'XAUUSD', n: 'Ons Altın', g: 'ENDEKSLER & EMTİA', src: 'yahoo', y: 'GC=F', p: 2684, v: 0.0055 },
   { s: 'USDTRY', n: 'Dolar / TL', g: 'ENDEKSLER & EMTİA', src: 'yahoo', y: 'USDTRY=X', p: 41.92, v: 0.0018 },
   { s: 'EURTRY', n: 'Euro / TL', g: 'ENDEKSLER & EMTİA', src: 'yahoo', y: 'EURTRY=X', p: 48.5, v: 0.002 },
@@ -77,6 +85,37 @@ export function resample(base, ms) {
   return out;
 }
 
+// ---------- türetilmiş semboller (ör. gram altın = ons × kur / 31,1035) ----------
+export const legKey = (L) => (L.src === 'binance' ? L.s : 'y:' + L.s);
+export function derivedLegs(src) {
+  const out = new Map();
+  for (const sd of SYMS) if (sd.src === 'derived') for (const L of sd.legs) if (L.src === src) out.set(L.s, L);
+  return [...out.values()];
+}
+export function computeDerived() {
+  for (const sd of SYMS) {
+    if (sd.src !== 'derived') continue;
+    const a = live[legKey(sd.legs[0])], b = live[legKey(sd.legs[1])], l = live[sd.s];
+    if (!l || !a || !b || !a.p || !b.p || a.mode === 'wait' || b.mode === 'wait') continue;
+    l.prev = l.p; l.p = a.p * b.p * sd.k; l.o24 = a.o24 * b.o24 * sd.k; l.mode = sd.legs[0].src === 'binance' ? 'live' : 'delayed';
+  }
+}
+function combine(A, B, k) {
+  const out = []; let j = 0;
+  for (const a of A) {
+    while (j + 1 < B.length && B[j + 1].t <= a.t) j++;
+    const b = B[j]; if (!b || b.t > a.t + 864e5 * 3) continue;
+    const o = a.o * b.o * k, c = a.c * b.c * k;
+    out.push({ t: a.t, o, c, h: Math.max(a.h * b.h * k, o, c), l: Math.min(a.l * b.l * k, o, c), v: a.v || 0 });
+  }
+  return out;
+}
+export async function derivedKlines(sd, tf) {
+  const get = (L) => (L.src === 'binance' ? binanceKlines(L.s, tf) : yahooRaw(L.s, tf));
+  const [A, B] = await Promise.all(sd.legs.map(get));
+  return combine(A, B, sd.k);
+}
+
 // ---------- ağ ----------
 export const BINT = { '1m': '1m', '5m': '5m', '15m': '15m', '1h': '1h', '4h': '4h', '1G': '1d', '1H': '1w' };
 export const BREST = ['https://data-api.binance.vision', 'https://api.binance.com'];
@@ -96,17 +135,23 @@ export async function binanceKlines(sym, tf, limit = 1000) {
   const j = await getJSON(BREST.map((b) => `${b}/api/v3/klines?symbol=${sym}&interval=${BINT[tf]}&limit=${limit}`));
   return j.map((k) => ({ t: k[0], o: +k[1], h: +k[2], l: +k[3], c: +k[4], v: +k[5] }));
 }
+function binanceSet() {
+  const set = new Set(SYMS.filter((x) => x.src === 'binance').map((x) => x.s));
+  for (const L of derivedLegs('binance')) { set.add(L.s); if (!live[L.s]) live[L.s] = { p: 0, o24: 0, prev: 0, mode: 'wait', leg: true }; }
+  return [...set];
+}
 export async function binanceTickers() {
-  const bs = SYMS.filter((x) => x.src === 'binance'); if (!bs.length) return;
+  const all = binanceSet(); if (!all.length) return;
   try {
-    const j = await getJSON(BREST.map((b) => `${b}/api/v3/ticker/24hr?symbols=${encodeURIComponent(JSON.stringify(bs.map((x) => x.s)))}`));
+    const j = await getJSON(BREST.map((b) => `${b}/api/v3/ticker/24hr?symbols=${encodeURIComponent(JSON.stringify(all))}`));
     for (const t of j) { const l = live[t.symbol]; if (!l) continue; l.prev = l.p; l.p = +t.lastPrice; l.o24 = +t.openPrice; l.mode = 'live'; }
-  } catch (e) { bs.forEach((x) => simify(x.s)); }
+    computeDerived();
+  } catch (e) { SYMS.filter((x) => x.src === 'binance' || (x.src === 'derived' && x.legs[0].src === 'binance')).forEach((x) => simify(x.s)); }
   openTickerWS();
 }
 let tws = null, twsHost = 0, twsKey = '';
 export function openTickerWS() {
-  const bs = SYMS.filter((x) => x.src === 'binance' && live[x.s] && live[x.s].mode === 'live');
+  const bs = binanceSet().filter((s) => live[s] && live[s].mode === 'live').map((s) => ({ s }));
   const key = bs.map((x) => x.s).join(',');
   if (tws && key === twsKey && tws.readyState <= 1) return;
   try { tws && ((tws.onclose = null), tws.close()); } catch (e) {}
@@ -115,12 +160,23 @@ export function openTickerWS() {
   try { tws = new WebSocket(url); } catch (e) { return; }
   tws.onmessage = (ev) => {
     const m = JSON.parse(ev.data).data; if (!m) return; const l = live[m.s]; if (!l) return;
-    l.prev = l.p; l.p = +m.c; l.o24 = +m.o; hooks.onLive(m.s);
+    l.prev = l.p; l.p = +m.c; l.o24 = +m.o; if (l.leg || derivedLegs('binance').some((L) => L.s === m.s)) computeDerived(); hooks.onLive(m.s);
   };
   tws.onclose = () => { twsHost++; twsKey = ''; setTimeout(openTickerWS, 3000); };
 }
 
 export const YINT = { '1m': ['1m', '5d'], '5m': ['5m', '1mo'], '15m': ['15m', '1mo'], '1h': ['60m', '1y'], '4h': ['60m', '2y'], '1G': ['1d', '10y'], '1H': ['1wk', 'max'] };
+export async function yahooRaw(y, tf) {
+  const [i, r] = YINT[tf];
+  const j = await getJSON([`/api/yahoo?s=${encodeURIComponent(y)}&i=${i}&r=${r}`], 15000);
+  const d = [];
+  for (let k = 0; k < j.t.length; k++) {
+    const c = j.c[k]; if (c == null) continue;
+    const o = j.o[k] ?? c, h = j.h[k] ?? Math.max(o, c), l = j.l[k] ?? Math.min(o, c);
+    d.push({ t: j.t[k], o, h: Math.max(h, o, c), l: Math.min(l, o, c), c, v: j.v[k] || 0 });
+  }
+  return tf === '4h' ? resample(d, TF['4h']) : d;
+}
 export async function yahooKlines(sd, tf) {
   const [i, r] = YINT[tf];
   const j = await getJSON([`/api/yahoo?s=${encodeURIComponent(sd.y)}&i=${i}&r=${r}`], 15000);
@@ -134,15 +190,21 @@ export async function yahooKlines(sd, tf) {
   return tf === '4h' ? resample(d, TF['4h']) : d;
 }
 export async function yahooQuotes(onFail) {
-  const ys = SYMS.filter((x) => x.src === 'yahoo'); if (!ys.length || net.API_OK === false) return;
+  const ys = SYMS.filter((x) => x.src === 'yahoo'), legs = derivedLegs('yahoo');
+  if ((!ys.length && !legs.length) || net.API_OK === false) return;
+  const all = [...new Set([...ys.map((x) => x.y), ...legs.map((L) => L.s)])];
   try {
-    const j = await getJSON([`/api/quotes?s=${encodeURIComponent(ys.map((x) => x.y).join(','))}`], 15000);
-    net.API_OK = true;
-    for (const q of j) {
-      const sd = ys.find((x) => x.y === q.s); if (!sd || !q.price) continue;
-      const l = live[sd.s]; l.prev = l.p; l.p = q.price; l.o24 = q.prev || q.price; l.mode = 'delayed';
+    for (let i = 0; i < all.length; i += 60) {
+      const j = await getJSON([`/api/quotes?s=${encodeURIComponent(all.slice(i, i + 60).join(','))}`], 20000);
+      net.API_OK = true;
+      for (const q of j) {
+        if (!q.price) continue;
+        for (const sd of ys.filter((x) => x.y === q.s)) { const l = live[sd.s]; l.prev = l.p; l.p = q.price; l.o24 = q.prev || q.price; l.mode = 'delayed'; }
+        if (legs.some((L) => L.s === q.s)) live['y:' + q.s] = { p: q.price, o24: q.prev || q.price, prev: q.price, mode: 'delayed', leg: true };
+      }
     }
+    computeDerived();
   } catch (e) {
-    if (net.API_OK === null) { net.API_OK = false; ys.forEach((x) => simify(x.s)); onFail && onFail(); }
+    if (net.API_OK === null) { net.API_OK = false; ys.forEach((x) => simify(x.s)); SYMS.filter((x) => x.src === 'derived' && x.legs[0].src === 'yahoo').forEach((x) => simify(x.s)); onFail && onFail(); }
   }
 }

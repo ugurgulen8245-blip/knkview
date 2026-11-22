@@ -1,12 +1,12 @@
 // TrendTakip — ana uygulama
 import { $, $$, TF, TFL, fP, fUSD, fPct, pad, clamp, toast, esc, uid } from './util.js';
-import { BASE, SYMS, live, net, hooks, symDef, initLive, binanceTickers, openTickerWS, yahooQuotes, binanceKlines, getJSON } from './data.js';
+import { BASE, SYMS, live, net, hooks, symDef, initLive, computeDerived, binanceTickers, openTickerWS, yahooQuotes, binanceKlines, getJSON } from './data.js';
 import { Chart } from './chart.js';
 import * as IND from './ind.js';
 import { Cloud } from './cloud.js';
 import { openScreener } from './screener.js';
 import { openMarkets, globalSearch, internalSym, exGroup } from './markets.js';
-const GORDER = ['KRİPTO', 'ENDEKSLER & EMTİA', 'BORSA İSTANBUL', 'ABD HİSSELERİ', 'ÇİN (ŞANGAY)', 'GLOBAL', 'YÜKLENEN VERİLER'];
+const GORDER = ['KRİPTO', 'ALTIN & GÜMÜŞ (TL)', 'ENDEKSLER & EMTİA', 'BORSA İSTANBUL', 'ABD HİSSELERİ', 'ÇİN (ŞANGAY)', 'GLOBAL', 'YÜKLENEN VERİLER'];
 
 const TYPES = { candle: 'Mum', heikin: 'Heikin', line: 'Çizgi', area: 'Alan' };
 const INDS = [
@@ -467,10 +467,12 @@ class App {
   // ---------- akış ----------
   tick() {
     const now = Date.now();
+    computeDerived();
     for (const sd of SYMS) { const l = live[sd.s]; if (!l || l.mode !== 'sim') continue; l.prev = l.p; l.p *= Math.exp(((Math.random() - 0.5) * 2 * 1.7) * (sd.v || 0.015) * Math.sqrt(0.7 / 3600) * 2.2); }
     for (const c of this.charts) {
       const l = live[c.sym]; if (!l) continue;
-      if (l.mode === 'sim') c.simStep(now); else if (l.mode === 'delayed') c.applyLivePrice(l.p);
+      const sd = symDef(c.sym);
+      if (l.mode === 'sim') c.simStep(now); else if (sd && sd.src === 'derived' && l.mode === 'live') c.liveStep(l.p, now); else if (l.mode === 'delayed') c.applyLivePrice(l.p);
       c.dirty = true; // geri sayım
     }
     for (const a of [...this.S.alerts]) {

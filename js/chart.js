@@ -1,6 +1,6 @@
 // Grafik motoru: her hücre bağımsız bir Chart örneğidir
 import { TF, TFL, AYLAR, fP, fV, fUSD, fPct, dec, pad, clamp, toast } from './util.js';
-import { symDef, live, gen, simify, resample, hooks, net, binanceKlines, yahooKlines, BINT, BWS } from './data.js';
+import { symDef, live, gen, simify, resample, hooks, net, binanceKlines, yahooKlines, derivedKlines, BINT, BWS } from './data.js';
 import * as IND from './ind.js';
 
 const C = { bg: '#0a0d13', grid: '#151b27', axis: '#5c6780', up: '#19c37d', dn: '#f0435a', ac: '#8b6cff', ac2: '#ffb547',
@@ -62,6 +62,11 @@ export class Chart {
         d = await yahooKlines(sd, this.tf); l.mode = 'delayed';
         if (tok === this.tok) this.poll = setInterval(() => this.refreshYahoo(tok), 30000);
       }
+      else if (sd.src === 'derived') {
+        if (sd.legs[0].src === 'yahoo' && net.API_OK === false) throw new Error('api yok');
+        d = await derivedKlines(sd, this.tf);
+        if (tok === this.tok) this.poll = setInterval(() => this.refreshYahoo(tok), sd.legs[0].src === 'binance' ? 60000 : 30000);
+      }
       if (!d || !d.length) throw new Error('boş veri');
     } catch (e) {
       if (tok !== this.tok) return;
@@ -73,7 +78,7 @@ export class Chart {
   async refreshYahoo(tok) {
     if (tok !== this.tok || document.hidden) return;
     try {
-      const d = await yahooKlines(symDef(this.sym), this.tf); if (tok !== this.tok || !d.length) return;
+      const sd = symDef(this.sym), d = sd.src === 'derived' ? await derivedKlines(sd, this.tf) : await yahooKlines(sd, this.tf); if (tok !== this.tok || !d.length) return;
       const n0 = this.data.length; this.data = d; if (this.V.right > 0) this.V.right += d.length - n0; this.recalc(); this.dirty = true;
     } catch (e) {}
   }
@@ -92,6 +97,11 @@ export class Chart {
   }
   applyLivePrice(p) {
     if (!this.data.length || !isFinite(p)) return; const b = this.data[this.last()];
+    if (b.c === p) return; b.c = p; b.h = Math.max(b.h, p); b.l = Math.min(b.l, p); this.recalcSoon();
+  }
+  liveStep(p, now) { // türetilmiş canlı semboller: son mumu güncelle, süre dolunca yeni mum aç
+    if (!this.data.length || !isFinite(p) || !p) return; let b = this.data[this.last()];
+    if (now >= b.t + this.ms) { const nb = { t: Math.floor(now / this.ms) * this.ms, o: b.c, h: Math.max(b.c, p), l: Math.min(b.c, p), c: p, v: 0 }; this.data.push(nb); if (this.data.length > 1500) this.data.shift(); if (this.V.right > 0) this.V.right += 1; b = nb; }
     if (b.c === p) return; b.c = p; b.h = Math.max(b.h, p); b.l = Math.min(b.l, p); this.recalcSoon();
   }
   simStep(now) {
