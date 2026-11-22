@@ -28,6 +28,25 @@ const DEF = {
   calc: { cap: 10000, risk: 1, lev: 1, fee: 0.1 }, portfolio: [], pfCur: 'TRY', journal: [], smart: [], radars: [], limits: { day: 3, week: 7, pos: 25 },
 };
 
+// ---------- Cloudflare Turnstile (kayıt/giriş robot doğrulaması) ----------
+const TURNSTILE_SITE_KEY = '0x4AAAAAAGNh62zVj7YfCdja', CAPTCHA_ON = true;
+let tsLoad = null, tsWidget = null, tsToken = '';
+function loadTurnstile() {
+  if (window.turnstile) return Promise.resolve();
+  if (!tsLoad) tsLoad = new Promise((ok, no) => { const s = document.createElement('script'); s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'; s.async = true; s.onload = ok; s.onerror = no; document.head.appendChild(s); });
+  return tsLoad;
+}
+async function renderCaptcha(el) {
+  if (!el || !CAPTCHA_ON) return;
+  tsToken = ''; try { await loadTurnstile(); } catch (_) { el.textContent = 'Robot doğrulaması yüklenemedi, sayfayı yenile.'; return; }
+  if (!document.body.contains(el)) return;
+  try { if (tsWidget != null) window.turnstile.remove(tsWidget); } catch (_) {}
+  const lang = (document.documentElement.lang || 'tr').slice(0, 2);
+  tsWidget = window.turnstile.render(el, { sitekey: TURNSTILE_SITE_KEY, theme: 'dark', language: ({ tr: 'tr', en: 'en', fr: 'fr', zh: 'zh-cn', ko: 'ko' })[lang] || 'auto', callback: (t) => { tsToken = t; }, 'expired-callback': () => { tsToken = ''; }, 'error-callback': () => { tsToken = ''; } });
+}
+const captchaToken = () => tsToken;
+function resetCaptcha() { tsToken = ''; try { if (tsWidget != null) window.turnstile.reset(tsWidget); } catch (_) {} }
+
 // arama: Türkçe karakter, büyük/küçük harf ve boşluk farkını yok say ("gram altin" = "GRAMALTIN" = "Gram Altın")
 const fold = (t) => String(t).toLocaleLowerCase('tr').replace(/[ıi̇]/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c').replace(/[^a-z0-9.=^]/g, '');
 
@@ -584,23 +603,27 @@ class App {
         <p class="note">Giriş yapınca çizimler, izleme listesi, portföy ve demo hesap tüm cihazlarında ortak olur; alarmlar site kapalıyken de bildirim gönderir.</p>
         <input class="field" id="accEmail" type="email" placeholder="ornek@gmail.com" autocomplete="email" value="${esc(this.accEmail || '')}">
         ${mode !== 'link' ? `<input class="field" id="accPw" type="password" placeholder="${mode === 'signup' ? 'Şifre belirle (en az 6 karakter)' : 'Şifre'}" autocomplete="${mode === 'signup' ? 'new-password' : 'current-password'}">` : ''}
+        <div id="accCaptcha" style="margin:8px 0 2px;min-height:65px"></div>
         <button class="pbtn" id="accGo">${mode === 'signup' ? 'Kayıt ol' : mode === 'link' ? 'Giriş bağlantısı gönder' : 'Giriş yap'}</button>
         <p class="note small" id="accMsg"></p>
         <p class="note small">${mode === 'link' ? '<a href="#" data-am="login">← Şifreyle giriş</a>' : 'Şifren yok mu? <a href="#" data-am="link">E-posta bağlantısıyla gir</a> (iPhone ana ekran uygulamasında çalışmaz; orada şifre kullan).'}</p>`;
       box.querySelectorAll('[data-am]').forEach((b) => (b.onclick = (e) => { e.preventDefault(); this.accEmail = $('#accEmail').value; this.accMode = b.dataset.am; this.renderAccount(); }));
+      renderCaptcha($('#accCaptcha'));
       $('#accGo').onclick = async () => {
         const em = $('#accEmail').value.trim(), pw = $('#accPw') ? $('#accPw').value : '';
         if (!/^\S+@\S+\.\S+$/.test(em)) return toast('Geçerli bir e-posta yaz', 'bad');
         if (mode !== 'link' && pw.length < 6) return toast('Şifre en az 6 karakter olmalı', 'bad');
+        const cap = captchaToken();
+        if (CAPTCHA_ON && !cap) return toast('Lütfen "robot değilim" doğrulamasının bitmesini bekle', 'bad');
         $('#accGo').disabled = true;
         try {
-          if (mode === 'login') { await this.cloud.loginPassword(em, pw); $('#accModal').classList.remove('show'); toast('✓ Giriş yapıldı', 'ok'); }
-          else if (mode === 'signup') { await this.cloud.signUp(em, pw); $('#accModal').classList.remove('show'); toast('✓ Hesabın oluşturuldu', 'ok'); }
-          else { await this.cloud.login(em); $('#accMsg').innerHTML = `✉️ <b>${esc(em)}</b> adresine bağlantı gönderildi. Maildeki bağlantıya tıkla. (Gelmezse spam klasörüne bak.)`; }
+          if (mode === 'login') { await this.cloud.loginPassword(em, pw, cap); $('#accModal').classList.remove('show'); toast('✓ Giriş yapıldı', 'ok'); }
+          else if (mode === 'signup') { await this.cloud.signUp(em, pw, cap); $('#accModal').classList.remove('show'); toast('✓ Hesabın oluşturuldu', 'ok'); }
+          else { await this.cloud.login(em, cap); $('#accMsg').innerHTML = `✉️ <b>${esc(em)}</b> adresine bağlantı gönderildi. Maildeki bağlantıya tıkla. (Gelmezse spam klasörüne bak.)`; }
         } catch (e) {
           const m = String(e.message || e);
           $('#accMsg').textContent = /Invalid login credentials/i.test(m) ? 'E-posta ya da şifre hatalı. Daha önce sadece bağlantıyla girdiysen şifren yok: giriş yaptığın cihazda Hesabım → Şifre belirle.' : /rate limit/i.test(m) ? 'Çok fazla e-posta gönderildi; bir saat sonra tekrar dene ya da şifreyle giriş yap.' : 'Olmadı: ' + m;
-          $('#accGo').disabled = false;
+          $('#accGo').disabled = false; resetCaptcha();
         }
       };
     }

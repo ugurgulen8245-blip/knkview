@@ -5598,5 +5598,19 @@
 "hi": "आज {0} AI टिप्पणियाँ बाकी",
 "zh": "今日还剩 {0} 次 AI 点评",
 "ko": "오늘 AI 해설 {0}회 남음"
+},
+"Lütfen \"robot değilim\" doğrulamasının bitmesini bekle": {
+"en": "Please wait for the \"I'm not a robot\" check to finish",
+"fr": "Veuillez attendre la fin de la vérification « je ne suis pas un robot »",
+"hi": "कृपया \"मैं रोबोट नहीं हूँ\" जाँच पूरी होने दें",
+"zh": "请等待“我不是机器人”验证完成",
+"ko": "\"로봇이 아닙니다\" 확인이 끝날 때까지 기다려 주세요"
+},
+"Robot doğrulaması yüklenemedi, sayfayı yenile.": {
+"en": "Couldn't load the robot check, refresh the page.",
+"fr": "Impossible de charger la vérification anti-robot, actualisez la page.",
+"hi": "रोबोट जाँच लोड नहीं हुई, पेज रीफ़्रेश करें।",
+"zh": "人机验证加载失败，请刷新页面。",
+"ko": "로봇 확인을 불러오지 못했습니다. 페이지를 새로고침하세요."
 }
 }

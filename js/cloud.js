@@ -24,16 +24,16 @@ export class Cloud {
   }
   get on() { return !!(this.sb && this.user); }
 
-  async login(email) {
-    const { error } = await this.sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + '/' } });
+  async login(email, captchaToken) {
+    const { error } = await this.sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + '/', captchaToken } });
     if (error) throw error;
   }
-  async loginPassword(email, password) {
-    const { error } = await this.sb.auth.signInWithPassword({ email, password });
+  async loginPassword(email, password, captchaToken) {
+    const { error } = await this.sb.auth.signInWithPassword({ email, password, options: { captchaToken } });
     if (error) throw error;
   }
-  async signUp(email, password) {
-    const { data, error } = await this.sb.auth.signUp({ email, password, options: { emailRedirectTo: location.origin + '/' } });
+  async signUp(email, password, captchaToken) {
+    const { data, error } = await this.sb.auth.signUp({ email, password, options: { emailRedirectTo: location.origin + '/', captchaToken } });
     if (error) throw error;
     if (!data.session) throw new Error(data.user && data.user.identities && !data.user.identities.length ? 'Bu e-posta zaten kayıtlı. "Giriş yap"ı kullan; şifren yoksa giriş yaptığın cihazdan Hesabım → Şifre belirle.' : 'Kayıt alındı, e-postanı onaylaman gerekiyor.');
   }
