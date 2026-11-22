@@ -24,8 +24,7 @@
     <div class="spacer"></div>
     <span class="demo" id="srcPill">…</span>
     <button id="mktBtn" class="ibtn" title="Tüm piyasalar"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18"/></svg><span class="t">Piyasalar</span></button>
-    <button id="scrBtn" class="ibtn" title="Piyasa tarayıcı"><svg viewBox="0 0 24 24"><path d="M3 5h18M6 12h12M10 19h4"/></svg><span class="t">Tarayıcı</span></button>
-    <button id="csvBtn" class="ibtn" title="Kendi verini yükle (CSV)"><svg viewBox="0 0 24 24"><path d="M12 16V4M6 10l6-6 6 6M4 20h16"/></svg><span class="t">CSV</span></button>
+    <button id="toolBtn" class="ibtn" title="Araçlar"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span class="t">Araçlar</span></button>
     <button id="accBtn" class="ibtn acc" title="Hesap"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg><span class="t" id="accTxt">Giriş</span></button>
   </header>
 
@@ -36,6 +35,8 @@
     <div class="sep"></div>
     <button id="indBtn" class="chip">ƒx İndikatör</button>
     <button id="fcBtn" class="chip fc">◔ Tahmin</button>
+    <button id="btBtn" class="chip">⚙ Strateji Testi</button>
+    <button id="shareBtn" class="chip">↗ Paylaş</button>
     <div class="sep"></div>
     <div id="layouts" class="chips">
       <button class="chip lay" data-l="1" title="Tek grafik"><svg viewBox="0 0 20 20"><rect x="2" y="3" width="16" height="14" rx="2"/></svg></button>
@@ -52,7 +53,7 @@
       <div class="tabs"><button class="tab on" data-t="watch">İzleme</button><button class="tab" data-t="ana">Analiz</button><button class="tab" data-t="trade">İşlem</button></div>
       <div class="pane on" id="p-watch">
         <div class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="q" placeholder="Sembol ara veya ekle…" autocomplete="off"></div>
-        <div class="qlinks"><button data-act="mkt">🌐 Piyasalar</button><button data-act="scr">☰ Tarayıcı</button><button data-act="csv">⇪ CSV</button></div>
+        <div class="qlinks"><button data-act="mkt">🌐 Piyasalar</button><button data-act="tools">▦ Araçlar</button><button data-act="share">↗ Paylaş</button></div>
         <div id="wlist"></div>
       </div>
       <div class="pane" id="p-ana"><div id="anaBox"></div></div>
@@ -126,6 +127,60 @@
   <div class="search" style="margin:10px 0"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="mktQ" placeholder="Bu listede ara: sembol, şirket adı veya sektör…" autocomplete="off"></div>
   <div class="scrwrap"><table class="scrt mkt"><thead id="mktHead"></thead><tbody id="mktBody"></tbody></table></div>
   <div class="note small" id="mktNote"></div>
+</div></div>
+
+<!-- Araçlar menüsü -->
+<div class="modal" id="toolsModal"><div class="mbox">
+  <h3>Araçlar <button data-close>×</button></h3>
+  <div class="tgrid">
+    <button data-tool="mkt"><b>🌐</b>Piyasalar<small>Tüm kripto, endeks ve hisseler</small></button>
+    <button data-tool="heat"><b>🟩</b>Isı Haritası<small>Günün kazanan ve kaybedenleri</small></button>
+    <button data-tool="cmp"><b>📈</b>Karşılaştır<small>BTC, altın, borsa, dolar</small></button>
+    <button data-tool="pf"><b>💼</b>Portföyüm<small>Gerçek varlıkların, TL ve $</small></button>
+    <button data-tool="bt"><b>⚙️</b>Strateji Testi<small>Geçmişte ne kazandırırdı?</small></button>
+    <button data-tool="scr"><b>🔎</b>Tarayıcı<small>RSI ve teknik skora göre</small></button>
+    <button data-tool="share"><b>↗️</b>Grafiği Paylaş<small>Çizimlerle birlikte link</small></button>
+    <button data-tool="csv"><b>⇪</b>CSV Yükle<small>Kendi verini grafikle</small></button>
+  </div>
+</div></div>
+
+<!-- Strateji testi -->
+<div class="modal wide" id="btModal"><div class="mbox">
+  <h3>Strateji Testi <button data-close>×</button></h3>
+  <div class="mtabs" id="btStrats"></div>
+  <p class="note" id="btDesc" style="margin:10px 0"></p>
+  <div class="cgrid" id="btParams"></div>
+  <div id="btRes" style="margin-top:12px"></div>
+</div></div>
+
+<!-- Portföy -->
+<div class="modal wide" id="pfModal"><div class="mbox">
+  <h3>Portföyüm <span class="seg two" id="pfCurSeg" style="margin:0 0 0 auto;width:120px;padding:3px"><button data-pfcur="TRY">₺</button><button data-pfcur="USD">$</button></span><button data-close style="margin-left:10px">×</button></h3>
+  <div id="pfSum"></div>
+  <div class="scrwrap" style="max-height:42vh"><div id="pfBody"></div></div>
+  <div class="msub">VARLIK EKLE</div>
+  <div class="pfadd"><input id="pfSym" list="pfList" placeholder="Sembol (örn. BTCUSDT, THYAO, GRAMALTIN)" autocomplete="off"><input id="pfQty" inputmode="decimal" placeholder="Miktar"><input id="pfCost" inputmode="decimal" placeholder="Birim maliyet"><span class="dim" id="pfCurL"></span><button class="pbtn" id="pfAdd" style="margin:0">Ekle</button></div>
+  <datalist id="pfList"></datalist>
+  <div class="note small">Maliyeti boş bırakırsan şu anki fiyat yazılır. Aynı varlığı tekrar eklersen ortalama maliyet hesaplanır. Giriş yaptıysan portföyün tüm cihazlarında görünür. Dövizli varlıklar güncel kurla TL'ye çevrilir.</div>
+</div></div>
+
+<!-- Karşılaştırma -->
+<div class="modal wide" id="cmpModal"><div class="mbox">
+  <h3>Karşılaştırma Grafiği <button data-close>×</button></h3>
+  <div class="cmpbar"><div class="mtabs" id="cmpPer"></div><button class="chip" id="cmpTL"></button></div>
+  <div class="cmpchips"><span id="cmpChips"></span><span class="cadd"><input id="cmpAdd" list="cmpList" placeholder="+ sembol ekle" autocomplete="off"><button id="cmpAddB">Ekle</button></span></div>
+  <datalist id="cmpList"></datalist>
+  <canvas id="cmpCv"></canvas>
+  <div class="cmplegend" id="cmpLegend"></div>
+  <div class="note small" id="cmpNote"></div>
+</div></div>
+
+<!-- Isı haritası -->
+<div class="modal wide" id="heatModal"><div class="mbox">
+  <h3>Isı Haritası <button data-close>×</button></h3>
+  <div class="mtabs" id="heatTabs"></div>
+  <div id="heatBox"></div>
+  <div class="note small" id="heatNote"></div>
 </div></div>
 
 <div id="toasts"></div>

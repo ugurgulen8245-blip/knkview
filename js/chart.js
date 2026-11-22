@@ -261,6 +261,7 @@ export class Chart {
     if (S.ind.ema200) this.line(I.ema200, C.ema200, 1.6, i0, i1);
     if (S.ind.fc && this.fc) this.drawFC();
     this.drawDrawings();
+    this.drawBT();
     ctx.restore();
 
     // pozisyon
@@ -300,6 +301,21 @@ export class Chart {
     this.goEl.classList.toggle('show', V.right > 4);
   }
 
+  drawBT() {
+    const bt = this.app.bt; if (!bt || bt.sym !== this.sym || bt.tf !== this.tf || !this.data.length) return;
+    const ctx = this.ctx, tri = (x, y, up, col) => { ctx.beginPath(); if (up) { ctx.moveTo(x, y); ctx.lineTo(x - 6, y + 9); ctx.lineTo(x + 6, y + 9); } else { ctx.moveTo(x, y); ctx.lineTo(x - 6, y - 9); ctx.lineTo(x + 6, y - 9); } ctx.closePath(); ctx.fillStyle = col; ctx.fill(); };
+    const bar = (t) => this.data[Math.max(0, Math.min(this.last(), Math.round(this.idxOfT(t))))];
+    ctx.font = '600 9px JetBrains Mono'; ctx.textAlign = 'center';
+    for (const t of bt.trades) {
+      const x0 = this.xOf(this.idxOfT(t.t0)), x1 = this.xOf(this.idxOfT(t.t1)); if (x1 < -20 || x0 > this.L.plotW + 20) continue;
+      const col = t.r >= 0 ? '#19c37d' : '#f0435a';
+      ctx.save(); ctx.setLineDash([3, 3]); ctx.strokeStyle = col + '99'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x0, this.yOf(t.p0)); ctx.lineTo(x1, this.yOf(t.p1)); ctx.stroke(); ctx.restore();
+      tri(x0, this.yOf(bar(t.t0).l) + 4, true, '#19c37d');
+      const yh = this.yOf(bar(t.t1).h) - 4; tri(x1, yh, false, '#f0435a');
+      ctx.fillStyle = col; ctx.fillText(`${t.r >= 0 ? '+' : ''}${(t.r * 100).toFixed(1)}%`, x1, yh - 13);
+    }
+    if (bt.open) { const x0 = this.xOf(this.idxOfT(bt.open.t0)); tri(x0, this.yOf(bar(bt.open.t0).l) + 4, true, '#19c37d'); }
+  }
   drawVP(i0, i1) {
     const ctx = this.ctx, L = this.L, vp = IND.volProfile(this.data, i0, i1, this.yr.lo, this.yr.hi, 30);
     if (!vp.max) return; const wMax = L.plotW * 0.22;

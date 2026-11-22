@@ -6,6 +6,8 @@ import * as IND from './ind.js';
 import { Cloud } from './cloud.js';
 import { openScreener } from './screener.js';
 import { openMarkets, globalSearch, internalSym, exGroup } from './markets.js';
+import { initTools, openTools, shareChart, applyShared } from './tools.js';
+import { openBacktest } from './backtest.js';
 const GORDER = ['KRİPTO', 'ALTIN & GÜMÜŞ (TL)', 'ENDEKSLER & EMTİA', 'BORSA İSTANBUL', 'ABD HİSSELERİ', 'ÇİN (ŞANGAY)', 'GLOBAL', 'YÜKLENEN VERİLER'];
 
 const TYPES = { candle: 'Mum', heikin: 'Heikin', line: 'Çizgi', area: 'Alan' };
@@ -18,7 +20,7 @@ const DEF = {
   charts: [{ sym: 'BTCUSDT', tf: '1h' }, { sym: 'ETHUSDT', tf: '1h' }, { sym: 'THYAO', tf: '1h' }, { sym: 'XAUUSD', tf: '1h' }],
   type: 'candle', ind: { sma20: true, ema50: true, ema200: false, bb: false, ichi: false, vp: false, vol: true, fc: false }, lower: 'rsi', fcH: 24,
   drawings: {}, alerts: [], acct: { cash: 100000, pos: {}, hist: [] }, customs: {}, extra: [],
-  calc: { cap: 10000, risk: 1, lev: 1, fee: 0.1 },
+  calc: { cap: 10000, risk: 1, lev: 1, fee: 0.1 }, portfolio: [], pfCur: 'TRY',
 };
 
 class App {
@@ -86,6 +88,7 @@ class App {
     this.renderWatch(true); this.renderTop();
     this.booted = true;
     this.charts.forEach((c) => c.load());
+    if (location.hash.startsWith('#p=')) setTimeout(() => applyShared(location.hash), 300);
     setInterval(() => this.tick(), 700);
     setInterval(() => { if (!document.hidden) yahooQuotes(); }, 30000);
     const loop = () => { for (const c of this.charts) if (c.dirty && c.W) c.render(); requestAnimationFrame(loop); };
@@ -184,16 +187,18 @@ class App {
     $('#lowerSeg').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; this.S.lower = b.dataset.v; this.save(); this.renderInd(); this.charts.forEach((c) => (c.dirty = true)); };
     $$('.modal').forEach((m) => m.addEventListener('click', (e) => { if (e.target === m || e.target.closest('[data-close]')) m.classList.remove('show'); }));
     // csv
-    $('#csvBtn').onclick = () => $('#csvModal').classList.add('show');
     $('#csvPick').onclick = () => $('#csvIn').click();
     $('#csvIn').onchange = (e) => this.importCSV(e);
     // hesap
     $('#accBtn').onclick = () => { this.renderAccount(); $('#accModal').classList.add('show'); };
     // tarayıcı
-    $('#scrBtn').onclick = () => openScreener(this);
     $('#mktBtn').onclick = () => openMarkets(this);
+    $('#toolBtn').onclick = () => openTools();
+    $('#btBtn').onclick = () => openBacktest(this);
+    $('#shareBtn').onclick = () => shareChart();
+    initTools(this);
     document.querySelector('.qlinks').onclick = (e) => { const b = e.target.closest('[data-act]'); if (!b) return; const a = b.dataset.act;
-      if (a === 'mkt') openMarkets(this); else if (a === 'scr') openScreener(this); else $('#csvModal').classList.add('show'); };
+      if (a === 'mkt') openMarkets(this); else if (a === 'tools') { this.closeSheet(); openTools(); } else { this.closeSheet(); shareChart(); } };
     // analiz paneli olayları
     $('#anaBox').onclick = (e) => {
       const h = e.target.closest('[data-h]'); if (h) { this.S.fcH = +h.dataset.h; this.save(); this.charts.forEach((c) => { c.recalc(); if (this.S.ind.fc) { c.V.right = c.defRight(); } }); this.renderAna(true); return; }
