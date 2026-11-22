@@ -120,7 +120,7 @@ const CC = ['#8b6cff', '#ffb547', '#19c37d', '#4fc3ff', '#ff6bd5', '#f0435a', '#
 function bindCompare() {
   const m = $('#cmpModal');
   m.addEventListener('click', (e) => {
-    const p = e.target.closest('[data-per]'); if (p) { cmp.per = +p.dataset.per; drawCmp(); renderCmpUI(); return; }
+    const p = e.target.closest('[data-per]'); if (p) { cmp.per = +p.dataset.per; renderCmpUI(); loadCmp(); return; }
     const r = e.target.closest('[data-cmprm]'); if (r) { cmp.syms = cmp.syms.filter((s) => s !== r.dataset.cmprm); renderCmpUI(); drawCmp(); return; }
     if (e.target.closest('#cmpTL')) { cmp.tl = !cmp.tl; renderCmpUI(); loadCmp(); return; }
     if (e.target.closest('#cmpAddB')) addCmp();
@@ -155,13 +155,15 @@ async function series(sd) {
 }
 async function loadCmp() {
   $('#cmpNote').textContent = 'Veriler yükleniyor…';
-  const need = cmp.syms.filter((s) => !cmp.data[s]);
-  await Promise.all(need.map(async (s) => { try { cmp.data[s] = await series(symDef(s)); } catch (e) { cmp.data[s] = []; } }));
+  const need = cmp.syms.filter((s) => !cmp.data[s] || !cmp.data[s].length || Date.now() - (cmp.data[s].ts || 0) > 6e5);
+  await Promise.all(need.map(async (s) => { try { const d = await series(symDef(s)); if (d && d.length) { d.ts = Date.now(); cmp.data[s] = d; } } catch (e) {} }));
+  const miss = cmp.syms.filter((s) => !cmp.data[s] || !cmp.data[s].length);
   if (cmp.tl) {
     const curs = new Set(cmp.syms.map((s) => curOf(symDef(s))));
-    for (const [c, y] of [['USD', 'USDTRY=X'], ['CNY', 'CNY=X'], ['EUR', 'EURTRY=X']]) if ((curs.has(c) || (c === 'USD' && curs.has('CNY'))) && !cmp['fx' + c]) { try { cmp['fx' + c] = await yahooRaw(y, '1G'); } catch (e) { cmp['fx' + c] = []; } }
+    for (const [c, y] of [['USD', 'USDTRY=X'], ['CNY', 'CNY=X'], ['EUR', 'EURTRY=X']]) if ((curs.has(c) || (c === 'USD' && curs.has('CNY'))) && !(cmp['fx' + c] && cmp['fx' + c].length)) { try { cmp['fx' + c] = await yahooRaw(y, '1G'); } catch (e) {} }
   }
   drawCmp();
+  if (miss.length) $('#cmpNote').textContent = `${miss.join(', ')} için veri alınamadı, tekrar denemek için dönemi değiştir.`;
 }
 function fxAt(arr, t) { if (!arr || !arr.length) return NaN; let lo = 0, hi = arr.length - 1; if (t < arr[0].t) return arr[0].c; while (hi - lo > 1) { const m = (lo + hi) >> 1; arr[m].t <= t ? (lo = m) : (hi = m); } return arr[hi].t <= t ? arr[hi].c : arr[lo].c; }
 function drawCmp() {
