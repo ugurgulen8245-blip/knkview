@@ -7,6 +7,7 @@
 // - POST ?tg=1 + X-Telegram-Bot-Api-Secret-Token → Telegram güncellemeleri (/start KOD, /stop)
 import webpush from "npm:web-push@3.6.7";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { metrics } from "./metrics.js";
 
 const SB = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
 const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info", "Access-Control-Allow-Methods": "GET, POST, OPTIONS" };
@@ -108,13 +109,14 @@ async function check() {
   if (error) throw error;
   if (!alerts?.length) return { open: 0, fired: 0 };
   const price: Record<string, number> = {};
-  const bin = [...new Set(alerts.filter((a) => a.src === "binance").map((a) => a.sym))];
+  const legs = (a: any) => (a.src === "derived" && Array.isArray(a.meta?.legs) ? a.meta.legs : []) as { src: string; s: string }[];
+  const bin = [...new Set([...alerts.filter((a) => a.src === "binance").map((a) => a.sym), ...alerts.flatMap((a) => legs(a).filter((L) => L.src === "binance").map((L) => L.s))])];
   for (let i = 0; i < bin.length; i += 100) {
     const q = encodeURIComponent(JSON.stringify(bin.slice(i, i + 100)));
     const j = await getJSON([`https://data-api.binance.vision/api/v3/ticker/price?symbols=${q}`, `https://api.binance.com/api/v3/ticker/price?symbols=${q}`]);
     for (const t of j ?? []) price["b:" + t.symbol] = +t.price;
   }
-  const ys = [...new Set(alerts.filter((a) => a.src === "yahoo" && a.ysym).map((a) => a.ysym as string))];
+  const ys = [...new Set([...alerts.filter((a) => a.src === "yahoo" && a.ysym).map((a) => a.ysym as string), ...alerts.flatMap((a) => legs(a).filter((L) => L.src === "yahoo").map((L) => L.s))])];
   await Promise.all(ys.map(async (y) => {
     const e = encodeURIComponent(y);
     const j = await getJSON([`https://query1.finance.yahoo.com/v8/finance/chart/${e}?interval=1d&range=1d`, `https://query2.finance.yahoo.com/v8/finance/chart/${e}?interval=1d&range=1d`]);
@@ -122,7 +124,8 @@ async function check() {
   }));
   let fired = 0;
   for (const a of alerts) {
-    const p = a.src === "binance" ? price["b:" + a.sym] : price["y:" + a.ysym];
+    let p = a.src === "binance" ? price["b:" + a.sym] : a.src === "yahoo" ? price["y:" + a.ysym] : 0;
+    if (a.src === "derived") { const L = legs(a), k = Number(a.meta?.k); const ps = L.map((x) => price[(x.src === "binance" ? "b:" : "y:") + x.s]); p = L.length && ps.every((x) => x > 0) && k > 0 ? ps.reduce((m, x) => m * x, k) : 0; }
     if (!p) continue;
     if (!((a.dir === "up" && p >= a.price) || (a.dir === "down" && p <= a.price))) continue;
     const { data: upd } = await SB.from("alerts").update({ triggered_at: new Date().toISOString() }).eq("id", a.id).is("triggered_at", null).select("id");
@@ -133,6 +136,72 @@ async function check() {
     await sendTg(a.user_id, title, body, path);
   }
   return { open: alerts.length, fired };
+}
+
+// ---------- Akıllı (çok koşullu) uyarılar: 2 dakikada bir ----------
+const BI: Record<string, string> = { "15m": "15m", "1h": "1h", "4h": "4h", "1G": "1d" };
+const YI: Record<string, [string, string]> = { "15m": ["15m", "1mo"], "1h": ["60m", "1y"], "4h": ["60m", "2y"], "1G": ["1d", "2y"] };
+const TFMS: Record<string, number> = { "15m": 9e5, "1h": 36e5, "4h": 144e5, "1G": 864e5 };
+type Bar = { t: number; o: number; h: number; l: number; c: number; v: number };
+function resample(base: Bar[], ms: number) {
+  const out: Bar[] = []; let cur: Bar | null = null;
+  for (const b of base) { const t = Math.floor(b.t / ms) * ms; if (!cur || cur.t !== t) { cur = { ...b, t }; out.push(cur); } else { cur.h = Math.max(cur.h, b.h); cur.l = Math.min(cur.l, b.l); cur.c = b.c; cur.v += b.v; } }
+  return out;
+}
+async function bars(src: string, s: string, tf: string): Promise<Bar[]> {
+  if (src === "binance") {
+    const j = await getJSON([`https://data-api.binance.vision/api/v3/klines?symbol=${encodeURIComponent(s)}&interval=${BI[tf]}&limit=300`, `https://api.binance.com/api/v3/klines?symbol=${encodeURIComponent(s)}&interval=${BI[tf]}&limit=300`]);
+    return (j ?? []).map((k: any[]) => ({ t: k[0], o: +k[1], h: +k[2], l: +k[3], c: +k[4], v: +k[5] }));
+  }
+  const [i, r] = YI[tf], e = encodeURIComponent(s);
+  let j = await getJSON([`https://query1.finance.yahoo.com/v8/finance/chart/${e}?interval=${i}&range=${r}`, `https://query2.finance.yahoo.com/v8/finance/chart/${e}?interval=${i}&range=${r}`]);
+  let R = j?.chart?.result?.[0], hourly = false;
+  if (tf === "1G" && (R?.timestamp?.length ?? 0) < 30) { j = await getJSON([`https://query1.finance.yahoo.com/v8/finance/chart/${e}?interval=60m&range=2y`]); R = j?.chart?.result?.[0]; hourly = true; }
+  const q = R?.indicators?.quote?.[0]; if (!R?.timestamp || !q) return [];
+  const d: Bar[] = [];
+  R.timestamp.forEach((t: number, k: number) => { const c = q.close[k]; if (c == null) return; const o = q.open[k] ?? c; d.push({ t: t * 1000, o, h: Math.max(q.high[k] ?? c, o, c), l: Math.min(q.low[k] ?? c, o, c), c, v: q.volume[k] || 0 }); });
+  return hourly ? resample(d, 864e5) : tf === "4h" ? resample(d, 144e5) : d;
+}
+function combine(A: Bar[], B: Bar[], k: number) {
+  const out: Bar[] = []; let j = 0;
+  for (const a of A) { while (j + 1 < B.length && B[j + 1].t <= a.t) j++; const b = B[j]; if (!b || b.t > a.t + 864e5 * 3) continue; const o = a.o * b.o * k, c = a.c * b.c * k; out.push({ t: a.t, o, c, h: Math.max(a.h * b.h * k, o, c), l: Math.min(a.l * b.l * k, o, c), v: a.v }); }
+  return out;
+}
+const nfx = (v: number, d = 2) => new Intl.NumberFormat("tr-TR", { maximumFractionDigits: d }).format(v);
+function condRes(m: Record<string, number>, c: any) {
+  const x = m[c.f], label = String(c.t || c.f).slice(0, 60);
+  if (c.op === "=") { const ok = !!x === !!c.v; return { ok, txt: `${label}: ${x ? "evet" : "hayır"}` }; }
+  const ok = Number.isFinite(x) && (c.op === "<" ? x < c.v : x > c.v), u = c.u === "%" ? "%" : c.u === "x" ? "x" : "";
+  return { ok, txt: `${label} ${Number.isFinite(x) ? (c.f === "p" ? fmt(x) : nfx(x)) + u : "—"} ${c.op} ${c.f === "p" ? fmt(c.v) : nfx(c.v)}${u}` };
+}
+async function smartCheck() {
+  if (new Date().getUTCMinutes() % 2 === 0) return { skip: true };
+  const { data: rows, error } = await SB.from("smart_alerts").select("*").eq("enabled", true).limit(500);
+  if (error) throw error;
+  if (!rows?.length) return { n: 0 };
+  const cache: Record<string, Promise<Bar[]>> = {};
+  const get = (src: string, s: string, tf: string) => (cache[src + s + tf] ??= bars(src, s, tf).catch(() => []));
+  let fired = 0;
+  for (const a of rows) {
+    try {
+      let d: Bar[];
+      if (a.src === "derived") { const L = a.meta?.legs ?? []; if (L.length !== 2) continue; const [A, B] = await Promise.all(L.map((x: any) => get(x.src, x.s, a.tf))); d = combine(A, B, Number(a.meta.k)); }
+      else d = await get(a.src, a.src === "yahoo" ? a.ysym : a.sym, a.tf);
+      const m = metrics(d); if (!m) continue;
+      const res = (a.conds as any[]).map((c) => condRes(m as any, c)), all = res.every((r) => r.ok), state = res.map((r) => r.ok);
+      const cool = Math.max(36e5, TFMS[a.tf] || 36e5), last = a.last_fired ? Date.parse(a.last_fired) : 0;
+      if (all && Date.now() - last > cool) {
+        const why = res.map((r) => "✓ " + r.txt).join(" · ");
+        await SB.from("smart_alerts").update({ state, last_fired: new Date().toISOString(), last_why: why, enabled: !!a.repeat }).eq("id", a.id);
+        const tfl = ({ "15m": "15dk", "1h": "1sa", "4h": "4sa", "1G": "1G" } as Record<string, string>)[a.tf];
+        const title = `🧠 ${a.sym} (${tfl}) · ${a.name || "Akıllı uyarı"}`, path = "/?s=" + encodeURIComponent(a.sym);
+        await sendToUser(a.user_id, { title, body: why, tag: "smart-" + a.id, url: path });
+        await sendTg(a.user_id, title, why.replace(/ · /g, "\n"), path);
+        fired++;
+      } else if (JSON.stringify(state) !== JSON.stringify(a.state)) await SB.from("smart_alerts").update({ state }).eq("id", a.id);
+    } catch (e) { console.error("smart", a.id, String(e)); }
+  }
+  return { n: rows.length, fired };
 }
 
 // ---------- KAP: izlenen hisselerin yeni bildirimleri (2 dakikada bir) ----------
@@ -185,6 +254,7 @@ Deno.serve(async (req) => {
       if (!secret || req.headers.get("x-cron-secret") !== secret) return json({ error: "yetkisiz" }, 401);
       const out: Record<string, unknown> = await check();
       try { out.kap = await kapCheck(); } catch (e) { out.kap = String(e); }
+      try { out.smart = await smartCheck(); } catch (e) { out.smart = String(e); }
       return json(out);
     }
     if (body.action === "tg_setup") {

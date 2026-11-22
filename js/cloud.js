@@ -62,6 +62,7 @@ export class Cloud {
       else { await this.pushNow(); toast('☁️ Bu cihazdaki verilerin hesabına kaydedildi', 'ok'); }
     } finally { this.applying = false; }
     await this.syncAlerts();
+    import('./smart.js').then((m) => m.syncSmart(this.app)).catch(() => {});
   }
   pushSoon() { if (!this.on || this.applying) return; clearTimeout(this.pushT); this.pushT = setTimeout(() => this.pushNow(), 1500); }
   async pushNow() {
@@ -87,8 +88,9 @@ export class Cloud {
   async addAlert(a) {
     if (!this.on) return;
     const sd = this.app.symInfo(a.sym);
-    if (!sd || (sd.src !== 'binance' && sd.src !== 'yahoo')) return; // CSV sembolleri sunucuda izlenemez
-    const { data, error } = await this.sb.from('alerts').insert({ sym: a.sym, src: sd.src, ysym: sd.y || null, price: a.p, dir: a.dir }).select('id').single();
+    if (!sd || !['binance', 'yahoo', 'derived'].includes(sd.src) || sd.custom) return; // CSV sembolleri sunucuda izlenemez
+    const meta = sd.src === 'derived' ? { legs: sd.legs.map((L) => ({ src: L.src, s: L.s })), k: sd.k } : null;
+    const { data, error } = await this.sb.from('alerts').insert({ sym: a.sym, src: sd.src, ysym: sd.y || null, price: a.p, dir: a.dir, meta }).select('id').single();
     if (!error && data) a.cid = data.id;
   }
   async delAlert(a) { if (this.on && a.cid) await this.sb.from('alerts').delete().eq('id', a.cid); }

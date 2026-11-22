@@ -28,6 +28,30 @@ async function evalAlert(a) {
   const res = a.conds.map((c) => check(m, c)); return { all: res.every((r) => r.ok), res, m };
 }
 
+// ---- sunucu (giriş yapılınca uyarılar site kapalıyken de çalışır) ----
+const cloudOn = () => app && app.cloud && app.cloud.on;
+function rowOf(a) {
+  const sd = symDef(a.sym); if (!sd || sd.custom || !['binance', 'yahoo', 'derived'].includes(sd.src)) return null;
+  return { sym: a.sym, src: sd.src, ysym: sd.y || null, meta: sd.src === 'derived' ? { legs: sd.legs.map((L) => ({ src: L.src, s: L.s })), k: sd.k } : null, tf: a.tf,
+    conds: a.conds.map((c) => ({ f: c.f, op: c.op, v: +c.v, t: FIELDS[c.f].t, u: FIELDS[c.f].u || '' })), name: a.name || null, repeat: !!a.repeat, enabled: !!a.on };
+}
+async function upload(a) {
+  const r = rowOf(a); if (!r) return false;
+  const { data, error } = await app.cloud.sb.from('smart_alerts').insert(r).select('id').single();
+  if (error || !data) return false; a.cid = data.id; return true;
+}
+export async function syncSmart(a) {
+  app = a; if (!cloudOn()) return; if (!app.S.smart) app.S.smart = [];
+  for (const x of app.S.smart) if (!x.cid) await upload(x);
+  const { data, error } = await app.cloud.sb.from('smart_alerts').select('*').order('created_at');
+  if (error || !data) return;
+  const log = app.S.smartLog || [];
+  app.S.smart = data.map((r) => ({ id: r.id, cid: r.id, sym: r.sym, tf: r.tf, conds: r.conds.map((c) => ({ f: c.f, op: c.op, v: c.v })), name: r.name || '', repeat: r.repeat, on: r.enabled, last: r.last_fired ? Date.parse(r.last_fired) : 0, state: r.state || null }));
+  for (const r of data) if (r.last_fired && r.last_why && !log.some((l) => l.cid === r.id && l.t === Date.parse(r.last_fired))) log.unshift({ t: Date.parse(r.last_fired), cid: r.id, sym: r.sym, name: r.name, why: r.last_why });
+  app.S.smartLog = log.sort((x, y) => y.t - x.t).slice(0, 30); app.save();
+  if (document.getElementById('smModal')?.classList.contains('show')) render();
+}
+
 export function startSmart(a) {
   app = a; if (!app.S.smart) app.S.smart = [];
   clearInterval(timer); timer = setInterval(runAll, 60000); setTimeout(runAll, 8000);
@@ -38,6 +62,7 @@ async function runAll() {
     try {
       const r = await evalAlert(a); if (!r) continue; a.state = r.res.map((x) => x.ok);
       const cool = Math.max(36e5, TF[a.tf]);
+      if (a.cid && cloudOn()) continue; // sunucu kontrol ediyor ve bildirimi o gönderiyor
       if (r.all && Date.now() - (a.last || 0) > cool) {
         a.last = Date.now(); if (!a.repeat) a.on = false;
         const why = r.res.map((x) => '✓ ' + x.txt).join(' · ');
@@ -57,6 +82,7 @@ export function openSmart(a) {
   body = modal('smModal', '🧠 Akıllı Uyarılar');
   if (!body.dataset.bound) { body.dataset.bound = 1; body.addEventListener('click', onClick); body.addEventListener('input', onInput); }
   render(); preview();
+  syncSmart(app).catch(() => {});
 }
 function onClick(e) {
   const pr = e.target.closest('[data-spre]'); if (pr) { const P = PRESETS[+pr.dataset.spre]; draft.conds = P.c.map((x) => ({ ...x })); draft.name = P.n; render(); preview(); return; }
@@ -66,12 +92,16 @@ function onClick(e) {
   if (e.target.closest('[data-srep]')) { draft.repeat = !draft.repeat; render(); return; }
   if (e.target.closest('[data-ssave]')) {
     if (!draft.conds.length) return toast('En az bir koşul ekle', 'bad');
-    app.S.smart.push({ id: uid(), ...draft, conds: draft.conds.map((x) => ({ ...x })), on: true, last: 0 }); app.save(); render(); toast('🧠 Akıllı uyarı kuruldu', 'ok'); runAll();
+    const na = { id: uid(), ...draft, conds: draft.conds.map((x) => ({ ...x })), on: true, last: 0 };
+    app.S.smart.push(na); app.save(); render();
+    if (cloudOn()) upload(na).then((ok) => { app.save(); render(); toast(ok ? '🧠 Akıllı uyarı kuruldu · sunucuda izleniyor ☁️' : '🧠 Kuruldu (bu sembol sunucuda izlenemiyor, site açıkken çalışır)', 'ok'); });
+    else { toast('🧠 Akıllı uyarı kuruldu', 'ok'); setTimeout(() => toast('İpucu: giriş yaparsan akıllı uyarılar site kapalıyken de çalışır', ''), 1500); }
+    runAll();
     if (!('Notification' in window) || Notification.permission !== 'granted') setTimeout(() => toast('Bildirim almak için İşlem → "Bildirimleri aç"', ''), 1200);
     return;
   }
-  const tg = e.target.closest('[data-stog]'); if (tg) { const a = app.S.smart.find((x) => x.id === tg.dataset.stog); a.on = !a.on; app.save(); render(); return; }
-  const rm = e.target.closest('[data-srm]'); if (rm) { app.S.smart = app.S.smart.filter((x) => x.id !== rm.dataset.srm); app.save(); render(); }
+  const tg = e.target.closest('[data-stog]'); if (tg) { const a = app.S.smart.find((x) => x.id === tg.dataset.stog); a.on = !a.on; app.save(); render(); if (a.cid && cloudOn()) app.cloud.sb.from('smart_alerts').update({ enabled: a.on }).eq('id', a.cid).then(() => {}); return; }
+  const rm = e.target.closest('[data-srm]'); if (rm) { const a = app.S.smart.find((x) => x.id === rm.dataset.srm); app.S.smart = app.S.smart.filter((x) => x.id !== rm.dataset.srm); app.save(); render(); if (a && a.cid && cloudOn()) app.cloud.sb.from('smart_alerts').delete().eq('id', a.cid).then(() => {}); }
 }
 function onInput(e) {
   const i = e.target.dataset.si, k = e.target.dataset.sk;
@@ -102,8 +132,8 @@ function render() {
     <div class="smprev" id="smPrev"></div>
     <div class="cbtns" style="grid-template-columns:1fr 1fr 1fr"><button class="closeb" data-sadd>+ Koşul</button><button class="closeb" data-srep>${draft.repeat ? '🔁 Her seferinde' : '1️⃣ Bir kez'}</button><button class="pbtn" data-ssave style="margin:4px 0 0">Uyarıyı kur</button></div>
     <div class="msub">KURULU UYARILAR</div>
-    ${S.map((a) => `<div class="smrow ${a.on ? '' : 'off'}"><div><b>${esc(a.sym)}</b> · ${TFL[a.tf]} · ${esc(a.name || '')}<div class="sub">${a.conds.map((c, k) => `<span class="${a.state && a.state[k] ? 'sigB' : 'sigN'}">${a.state ? (a.state[k] ? '✓' : '✗') : '•'} ${esc(FIELDS[c.f].t)}${FIELDS[c.f].b ? '' : ' ' + c.op + ' ' + fmt(c.f, c.v)}</span>`).join(' ')}</div></div>
+    ${S.map((a) => `<div class="smrow ${a.on ? '' : 'off'}"><div><b>${esc(a.sym)}</b> · ${TFL[a.tf]} · ${esc(a.name || '')}${a.cid ? ' <span title="Sunucuda izleniyor">☁️</span>' : ''}<div class="sub">${a.conds.map((c, k) => `<span class="${a.state && a.state[k] ? 'sigB' : 'sigN'}">${a.state ? (a.state[k] ? '✓' : '✗') : '•'} ${esc(FIELDS[c.f].t)}${FIELDS[c.f].b ? '' : ' ' + c.op + ' ' + fmt(c.f, c.v)}</span>`).join(' ')}</div></div>
       <button class="closeb" data-stog="${a.id}" style="width:auto;margin:0;padding:6px 10px">${a.on ? 'Açık' : 'Kapalı'}</button><button class="star" data-srm="${a.id}">✕</button></div>`).join('') || '<div class="empty">Henüz akıllı uyarı yok</div>'}
     ${(app.S.smartLog || []).length ? `<div class="msub">SON TETİKLENENLER</div>${app.S.smartLog.slice(0, 8).map((l) => `<div class="irow"><span><b>${esc(l.sym)}</b> ${esc(l.name || '')}<div class="sub">${esc(l.why)}</div></span><span class="dim">${new Date(l.t).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span></div>`).join('')}` : ''}
-    <div class="disc">Akıllı uyarılar şimdilik site (ya da ana ekrana eklenen uygulama) açıkken her dakika kontrol edilir. Basit fiyat alarmları ise giriş yaptıysan sunucuda site kapalıyken de çalışır.</div>`;
+    <div class="disc">${cloudOn() ? '☁️ olan uyarılar sunucuda 2 dakikada bir kontrol edilir; site kapalıyken de telefonuna ve bağladıysan Telegram\'a gelir.' : 'Giriş yapmadan akıllı uyarılar yalnızca site açıkken çalışır. Giriş yaparsan sunucuda, site kapalıyken de kontrol edilir.'} Koşullar kapanmış (tamamlanmış) mumlarla değil, son mumun anlık değeriyle hesaplanır.</div>`;
 }
