@@ -24,7 +24,7 @@ const clip = (s, n) => String(s == null ? '' : s).slice(0, n);
 module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST gerekli' });
-  const key = process.env.ANTHROPIC_API_KEY;
+  const key = process.env.ANTHROPIC_API_KEY || process.env.ANTHROPI_API_KEY;
   if (!key) return res.status(503).json({ error: 'nokey' });
   const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
   if (!token) return res.status(401).json({ error: 'login' });
