@@ -1,0 +1,7 @@
+{
+  "name": "knkview",
+  "version": "1.0.0",
+  "private": true,
+  "description": "KnkView — kendi grafik ve analiz platformumuz",
+  "engines": { "node": ">=18" }
+}
