@@ -77,6 +77,8 @@ function render(body, sd, d, b, bd, news) {
   else if (!m.aboveE50 && m.aboveE200 === false && m.e50 < m.e200) { trend = '**düşüş trendinde**: fiyat 50 ve 200 günlük ortalamaların altında'; minus.push('Ana trend aşağı (fiyat 50 ve 200 günlük ortalamanın altında)'); }
   else if (m.aboveE200 && !m.aboveE50) { trend = 'uzun vadede yükseliş trendinde ama kısa vadede **düzeltmede** (50 günlük ortalamanın altına inmiş)'; minus.push('Kısa vadeli düzeltme sürüyor'); }
   else if (m.aboveE200 === false && m.aboveE50) { trend = 'uzun vadede zayıf, kısa vadede **toparlanma** çabasında (50 günlük ortalamanın üstüne çıkmış, 200 günlüğün altında)'; plus.push('Kısa vadeli toparlanma var'); }
+  else if (m.aboveE50 && m.aboveE200) { trend = '**yükselişe dönüyor**: fiyat 50 ve 200 günlük ortalamaların üstüne çıkmış, 50 günlük ortalama henüz 200 günlüğü yukarı kesmedi'; plus.push('Fiyat iki ana ortalamanın da üstünde'); }
+  else if (m.aboveE50 === false && m.aboveE200 === false) { trend = '**zayıflıyor**: fiyat 50 ve 200 günlük ortalamaların altına inmiş, 50 günlük henüz 200 günlüğün altına geçmedi'; minus.push('Fiyat iki ana ortalamanın da altında'); }
   else trend = 'belirgin bir trend göstermiyor';
   // momentum
   const r = m.rsi; let mom;
