@@ -19,7 +19,12 @@ const TR = [
   [/^German ifo Business Climate$/i, 'Almanya Ifo iş iklimi'], [/^German ZEW Economic Sentiment$/i, 'Almanya ZEW ekonomik güven'], [/^Bank Holiday$/i, 'Resmî tatil (piyasa kapalı)'],
   [/Speaks$/i, (t) => t.replace(/ Speaks$/i, ' konuşması')], [/^Treasury Currency Report$/i, 'ABD Hazine kur raporu'],
 ];
-const trTitle = (t) => { for (const [re, v] of TR) if (re.test(t)) return typeof v === 'function' ? v(t) : v; return t; };
+const PFX = { French: 'Fransa', German: 'Almanya', Spanish: 'İspanya', Italian: 'İtalya', Chinese: 'Çin' };
+const trTitle = (t) => {
+  const m = t.match(/^(French|German|Spanish|Italian|Chinese) (.+)$/);
+  if (m && !/^German (ifo|ZEW)/.test(t)) { const r = trTitle(m[2]); return r !== m[2] ? `${PFX[m[1]]} ${r}` : t; }
+  for (const [re, v] of TR) if (re.test(t)) return typeof v === 'function' ? v(t) : v; return t;
+};
 
 // Türkiye: TCMB PPK (14:00) ve TÜİK TÜFE (ayın 3'ü 10:00; hafta sonuna denk gelirse pazartesi). Kaynak: TCMB 2026–2027 takvimi.
 const PPK = ['2026-01-22', '2026-03-12', '2026-04-22', '2026-06-11', '2026-07-23', '2026-09-10', '2026-10-22', '2026-12-10', '2027-01-21'];
