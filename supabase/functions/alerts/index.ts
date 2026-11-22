@@ -135,6 +135,38 @@ async function check() {
   return { open: alerts.length, fired };
 }
 
+// ---------- KAP: izlenen hisselerin yeni bildirimleri (2 dakikada bir) ----------
+async function kapCheck() {
+  if (new Date().getUTCMinutes() % 2) return { skip: true };
+  const j = await getJSON(["https://knkview.vercel.app/api/kap?days=1"]);
+  const items: any[] = j?.items ?? [];
+  if (!items.length) return { n: 0 };
+  const maxId = Math.max(...items.map((x) => x.id));
+  const last = Number(await kv("kap_last") || 0);
+  if (!last) { await SB.rpc("kv_set", { p_k: "kap_last", p_v: String(maxId) }); return { init: maxId }; }
+  const fresh = items.filter((x) => x.id > last).sort((a, b) => a.id - b.id);
+  if (!fresh.length) return { n: 0 };
+  await SB.rpc("kv_set", { p_k: "kap_last", p_v: String(Math.max(last, maxId)) });
+  const codes = [...new Set(fresh.flatMap((x) => x.codes as string[]))];
+  const { data: subs } = await SB.from("kap_watch").select("user_id,codes").eq("enabled", true).overlaps("codes", codes);
+  let sent = 0;
+  for (const u of subs ?? []) {
+    const mine = new Set(u.codes as string[]);
+    const hit = fresh.filter((x) => (x.codes as string[]).some((c) => mine.has(c)));
+    if (!hit.length) continue;
+    const list = hit.length > 4 ? [...hit.slice(0, 3), null] : hit;
+    for (const x of list) {
+      if (!x) { await sendToUser(u.user_id, { title: `📢 KAP: ${hit.length - 3} bildirim daha`, body: "Takvim & KAP bölümünde hepsini gör.", tag: "kap-more", url: "/" }); await sendTg(u.user_id, `📢 KAP: ${hit.length - 3} bildirim daha`, "Takvim & KAP bölümünde hepsini gör."); continue; }
+      const code = (x.codes as string[]).find((c) => mine.has(c)) || x.codes[0];
+      const title = `📢 ${code} · KAP`, body = `${x.subj}${x.sum ? " — " + String(x.sum).slice(0, 160) : ""}`;
+      await sendToUser(u.user_id, { title, body, tag: "kap-" + x.id, url: x.url });
+      await sendTg(u.user_id, title, body + `\n${x.url}`, "/?s=" + encodeURIComponent(code));
+      sent++;
+    }
+  }
+  return { fresh: fresh.length, sent };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   try {
@@ -151,7 +183,9 @@ Deno.serve(async (req) => {
     if (body.action === "check") {
       const secret = await kv("cron_secret");
       if (!secret || req.headers.get("x-cron-secret") !== secret) return json({ error: "yetkisiz" }, 401);
-      return json(await check());
+      const out: Record<string, unknown> = await check();
+      try { out.kap = await kapCheck(); } catch (e) { out.kap = String(e); }
+      return json(out);
     }
     if (body.action === "tg_setup") {
       const secret = await kv("cron_secret");

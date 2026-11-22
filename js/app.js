@@ -291,6 +291,7 @@ class App {
       if (!meta.n && j[0].n) sd.n = j[0].n;
     }
     SYMS.push({ ...sd, extra: true }); this.S.extra.push(sd); initLive();
+    if (this.S.kapNotif && sd.y && sd.y.endsWith('.IS')) import('./agenda.js').then((m) => m.syncKapWatch(this));
     live[sd.s].mode = src === 'binance' ? 'live' : 'delayed';
     if (src === 'binance') binanceTickers(); else yahooQuotes();
     this.save(); return sd;
@@ -308,6 +309,7 @@ class App {
       e.stopPropagation(); const s = rm.dataset.rm;
       this.S.extra = this.S.extra.filter((x) => x.s !== s); delete this.S.customs[s];
       const i = SYMS.findIndex((x) => x.s === s); if (i >= 0) SYMS.splice(i, 1); delete live[s];
+      if (this.S.kapNotif) import('./agenda.js').then((m) => m.syncKapWatch(this));
       this.S.charts.forEach((c, k) => { if (c.sym === s) { c.sym = 'BTCUSDT'; this.charts[k] && this.charts[k].load(); } });
       this.save(); this.renderWatch(true); openTickerWS(); return;
     }

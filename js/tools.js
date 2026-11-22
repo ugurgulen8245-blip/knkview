@@ -17,6 +17,7 @@ function bindMenu() {
     if (k === 'cmp') openCompare();
     if (k === 'heat') openHeat();
     if (k === 'share') shareChart();
+    if (k === 'ag') (await import('./agenda.js')).openAgenda(app);
     if (k === 'csv') $('#csvModal').classList.add('show');
     if (['an', 'radar', 'flow', 'sector', 'risk', 'jr', 'smart'].includes(k)) app.openTool(k);
   });
