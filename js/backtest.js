@@ -49,6 +49,32 @@ export function backtest(d, key, P, opt) {
     avgW: wins.length ? gw / wins.length : NaN, avgL: losses.length ? -gl / losses.length : NaN, pf: gl > 0 ? gw / gl : wins.length ? Infinity : NaN, exposure: inPos / Math.max(1, n - warm) };
 }
 
+// ---------- çoklu strateji motoru: parametre ızgarası + örneklem dışı test ----------
+const GRID = {
+  rsi: () => { const o = []; for (const n of [7, 14, 21]) for (const lo of [25, 30, 35]) for (const hi of [65, 70, 75]) o.push({ n, lo, hi }); return o; },
+  ma: () => { const o = []; for (const f of [10, 20, 50]) for (const s of [50, 100, 200]) if (f < s) o.push({ f, s }); return o; },
+  macd: () => [{}],
+  bb: () => [1.5, 2, 2.5].flatMap((k) => [10, 20].map((n) => ({ n, k }))),
+  brk: () => [10, 20, 55].map((n) => ({ n })),
+};
+export function compareAll(d, opt) {
+  const n = d.length, cut = Math.floor(n * 0.7), out = [];
+  const seg = (R, a, b) => (R.eq[b] && R.eq[a] ? R.eq[b] / R.eq[a] - 1 : NaN);
+  for (const k of Object.keys(STRATS)) {
+    let best = null;
+    for (const P of GRID[k]()) {
+      const R = backtest(d, k, P, opt); const a = Math.max(R.warm, 1), is = seg(R, a, cut - 1), oos = seg(R, cut - 1, n - 1);
+      const tradesOOS = R.trades.filter((t) => t.i0 >= cut).length;
+      if (!best || is > best.is) best = { k, P, is, oos, tradesOOS, n: R.n, mdd: R.mdd };
+    }
+    const D = backtest(d, k, STRATS[k].p, opt); best.defOOS = seg(D, cut - 1, n - 1);
+    out.push(best);
+  }
+  const bhOOS = d[n - 1].c / d[cut - 1].c - 1, bhIS = d[cut - 1].c / d[Math.min(60, cut - 1)].c - 1;
+  out.sort((a, b) => b.oos - a.oos);
+  return { rows: out, bhOOS, bhIS, cut, t0: d[0].t, tc: d[cut].t, t1: d[n - 1].t };
+}
+
 // ---------- arayüz ----------
 const st = { k: 'rsi', P: {}, opt: { fee: 0.1, sl: 0, tp: 0 } };
 let app, last = null;
@@ -64,6 +90,8 @@ function bind() {
     const a = e.target.closest('[data-bt]'); if (!a) return;
     if (a.dataset.bt === 'show') { const c = app.act; app.bt = { sym: c.sym, tf: c.tf, label: STRATS[st.k].t, trades: last.trades.map((t) => ({ t0: c.data[t.i0].t, t1: c.data[t.i1].t, p0: t.p0, p1: t.p1, r: t.r })), open: last.open ? { t0: c.data[last.open.i0].t, p0: last.open.p0 } : null }; app.charts.forEach((x) => (x.dirty = true)); m.classList.remove('show'); toast('Al/sat noktaları grafikte · ▲ alış ▼ satış', 'ok'); }
     if (a.dataset.bt === 'clear') { app.bt = null; app.charts.forEach((x) => (x.dirty = true)); toast('Test işaretleri kaldırıldı'); }
+    if (a.dataset.bt === 'all') runAll();
+    if (a.dataset.bt === 'use') { st.k = a.dataset.k; st.P[st.k] = JSON.parse(a.dataset.p); form(); run(); }
   });
   m.addEventListener('input', (e) => {
     const f = e.target.dataset.p, o = e.target.dataset.o, v = parseFloat(String(e.target.value).replace(',', '.'));
@@ -92,9 +120,21 @@ function run() {
     <div class="irow"><span>Piyasada kalma süresi</span><span>%${Math.round(R.exposure * 100)}</span></div>
     <canvas id="btEq" height="140"></canvas>
     <div class="cbtns"><button class="closeb" data-bt="show">📍 Grafikte göster</button><button class="closeb" data-bt="clear">✕ İşaretleri kaldır</button></div>
+    <button class="pbtn" data-bt="all" style="margin-top:8px">🏆 Tüm stratejileri karşılaştır (çoklu strateji motoru)</button><div id="btAll"></div>
     <details><summary>İşlem listesi (${R.trades.length})</summary>${R.trades.slice(-30).reverse().map((t) => `<div class="irow"><span>${dt(d[t.i0].t)} → ${dt(d[t.i1].t)} <small class="dim">${t.why}</small></span><span class="${col(t.r)}">${fPct(t.r * 100)}</span></div>`).join('') || '<div class="empty">Bu ayarlarla hiç işlem oluşmadı</div>'}</details>
     <div class="disc">Geçmiş performans geleceği garanti etmez. Test kayma (slippage), likidite ve vergi gibi gerçek hayattaki maliyetleri içermez. Çok fazla ayar deneyip en iyisini seçmek geçmişe aşırı uyum (overfitting) riskidir. Yatırım tavsiyesi değildir.</div>`;
   drawEq(d, R);
+}
+function runAll() {
+  const c = app.act, box = $('#btAll'); box.innerHTML = '<div class="empty">Yaklaşık 60 ayar kombinasyonu test ediliyor…</div>';
+  setTimeout(() => {
+    const A = compareAll(c.data, st.opt), lab = (k, P) => STRATS[k].t + (Object.keys(P).length ? ' (' + Object.entries(P).map(([x, v]) => `${STRATS[k].l[x].split(' ')[0]} ${v}`).join(', ') + ')' : '');
+    box.innerHTML = `<div class="note small" style="margin:10px 0 6px">Veri ikiye bölündü: ilk %70'te (${dt(A.t0)}–${dt(A.tc)}) her stratejinin <b>en iyi ayarı</b> seçildi, sonra bu ayar hiç görmediği son %30'da (${dt(A.tc)}–${dt(A.t1)}) test edildi. Asıl güvenilir sonuç <b>"Test dönemi"</b> sütunudur.</div>
+      <div class="scrwrap"><table class="scrt"><thead><tr><th>Strateji · seçilen ayar</th><th>Öğrenme dönemi</th><th>Test dönemi</th><th>Varsayılan ayar (test)</th><th></th></tr></thead><tbody>
+      ${A.rows.map((r, i) => `<tr><td>${i === 0 && r.oos > A.bhOOS ? '🏆 ' : ''}${esc(lab(r.k, r.P))}<div class="sub">${r.tradesOOS} işlem test döneminde</div></td><td class="${r.is >= 0 ? 'up' : 'dn'}">${fPct(r.is * 100, 1)}</td><td class="${r.oos >= 0 ? 'up' : 'dn'}"><b>${fPct(r.oos * 100, 1)}</b></td><td class="${r.defOOS >= 0 ? 'up' : 'dn'}">${fPct(r.defOOS * 100, 1)}</td><td><button class="closeb" style="width:auto;margin:0;padding:4px 8px" data-bt="use" data-k="${r.k}" data-p='${esc(JSON.stringify(r.P))}'>Kullan</button></td></tr>`).join('')}
+      <tr><td><b>Al ve tut</b></td><td class="${A.bhIS >= 0 ? 'up' : 'dn'}">${fPct(A.bhIS * 100, 1)}</td><td class="${A.bhOOS >= 0 ? 'up' : 'dn'}"><b>${fPct(A.bhOOS * 100, 1)}</b></td><td></td><td></td></tr></tbody></table></div>
+      <div class="disc">Öğrenme döneminde çok iyi görünüp test döneminde kötüleşen strateji geçmişe aşırı uydurulmuştur (overfitting). Test döneminde al-tut'u yenemeyen bir strateji için ekstra işlem ve komisyon katlanmaya değmeyebilir.</div>`;
+  }, 30);
 }
 const dt = (t) => { const x = new Date(t); return `${String(x.getDate()).padStart(2, '0')}.${String(x.getMonth() + 1).padStart(2, '0')}.${String(x.getFullYear()).slice(2)}`; };
 function drawEq(d, R) {

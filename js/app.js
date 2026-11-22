@@ -8,6 +8,11 @@ import { openScreener } from './screener.js';
 import { openMarkets, globalSearch, internalSym, exGroup } from './markets.js';
 import { initTools, openTools, shareChart, applyShared } from './tools.js';
 import { openBacktest } from './backtest.js';
+import { openAnalyst } from './analyst.js';
+import { openRadar } from './radar.js';
+import { openRisk } from './risk.js';
+import { openJournal, recordTrade } from './journal.js';
+import { openSmart, startSmart } from './smart.js';
 const GORDER = ['KRİPTO', 'ALTIN & GÜMÜŞ (TL)', 'ENDEKSLER & EMTİA', 'BORSA İSTANBUL', 'ABD HİSSELERİ', 'ÇİN (ŞANGAY)', 'GLOBAL', 'YÜKLENEN VERİLER'];
 
 const TYPES = { candle: 'Mum', heikin: 'Heikin', line: 'Çizgi', area: 'Alan' };
@@ -20,7 +25,7 @@ const DEF = {
   charts: [{ sym: 'BTCUSDT', tf: '1h' }, { sym: 'ETHUSDT', tf: '1h' }, { sym: 'THYAO', tf: '1h' }, { sym: 'XAUUSD', tf: '1h' }],
   type: 'candle', ind: { sma20: true, ema50: true, ema200: false, bb: false, ichi: false, vp: false, vol: true, fc: false }, lower: 'rsi', fcH: 24,
   drawings: {}, alerts: [], acct: { cash: 100000, pos: {}, hist: [] }, customs: {}, extra: [],
-  calc: { cap: 10000, risk: 1, lev: 1, fee: 0.1 }, portfolio: [], pfCur: 'TRY',
+  calc: { cap: 10000, risk: 1, lev: 1, fee: 0.1 }, portfolio: [], pfCur: 'TRY', journal: [], smart: [], radars: [], limits: { day: 3, week: 7, pos: 25 },
 };
 
 class App {
@@ -87,6 +92,7 @@ class App {
     await Promise.all([binanceTickers(), yahooQuotes(() => { this.renderWatch(true); this.charts.forEach((c) => symDef(c.sym)?.src === 'yahoo' && c.load()); })]);
     this.renderWatch(true); this.renderTop();
     this.booted = true;
+    startSmart(this);
     this.charts.forEach((c) => c.load());
     if (location.hash.startsWith('#p=')) setTimeout(() => applyShared(location.hash), 300);
     setInterval(() => this.tick(), 700);
@@ -195,6 +201,8 @@ class App {
     $('#mktBtn').onclick = () => openMarkets(this);
     $('#toolBtn').onclick = () => openTools();
     $('#btBtn').onclick = () => openBacktest(this);
+    $('#anBtn').onclick = () => openAnalyst(this);
+    this.openTool = (k) => ({ an: () => openAnalyst(this), radar: () => openRadar(this, 'radar'), flow: () => openRadar(this, 'flow'), sector: () => openRadar(this, 'sector'), risk: () => openRisk(this), jr: () => openJournal(this), smart: () => openSmart(this) }[k] || (() => {}))();
     $('#shareBtn').onclick = () => shareChart();
     initTools(this);
     document.querySelector('.qlinks').onclick = (e) => { const b = e.target.closest('[data-act]'); if (!b) return; const a = b.dataset.act;
@@ -357,6 +365,16 @@ class App {
   }
 
   // ---------- demo işlem ----------
+  lossLocked() {
+    const A = this.S.acct, L = this.S.limits || DEF.limits, eq = this.equity();
+    return (A.dayStart && (eq / A.dayStart.eq - 1) * 100 <= -L.day) || (A.weekStart && (eq / A.weekStart.eq - 1) * 100 <= -L.week);
+  }
+  periodMarks() {
+    const A = this.S.acct, now = new Date(), day = now.toDateString(), wk = (() => { const d = new Date(now); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.toDateString(); })();
+    const eq = this.equity(); if (!isFinite(eq)) return;
+    if (!A.dayStart || A.dayStart.d !== day) { A.dayStart = { d: day, eq }; this.save(); }
+    if (!A.weekStart || A.weekStart.d !== wk) { A.weekStart = { d: wk, eq }; this.save(); }
+  }
   equity() { let e = this.S.acct.cash; for (const [s, p] of Object.entries(this.S.acct.pos)) if (live[s]) e += p.q * live[s].p; return e; }
   trade(side) {
     const sym = this.act.sym, usd = parseFloat($('#amt').value); if (!(usd > 0)) return toast('Geçerli bir tutar gir', 'bad');
@@ -364,6 +382,9 @@ class App {
     const A = this.S.acct, pos = A.pos[sym] || { q: 0, avg: 0 }, nq = pos.q + dq;
     let other = 0; for (const [s, p] of Object.entries(A.pos)) if (s !== sym && live[s]) other += Math.abs(p.q * live[s].p);
     if (Math.abs(nq * pr) > Math.abs(pos.q * pr) && Math.abs(nq * pr) + other > this.equity() * 2) return toast('Yetersiz teminat (maks. 2x kaldıraç)', 'bad');
+    if (Math.abs(nq) > Math.abs(pos.q) && this.lossLocked()) return toast('⛔ Zarar limitine ulaştın: limit dönemi bitene kadar yeni pozisyon açılamaz (Risk Merkezi)', 'bad');
+    if (pos.q && Math.sign(pos.q) !== Math.sign(dq)) { const cq = Math.min(Math.abs(dq), Math.abs(pos.q)); recordTrade(this, { sym, side: pos.q > 0 ? 'long' : 'short', q: cq, entry: pos.avg, exit: pr, t0: pos.t0 || Date.now(), t1: Date.now() }); }
+    if (pos.q === 0 || Math.sign(nq) !== Math.sign(pos.q)) pos.t0 = Date.now();
     if (pos.q === 0 || Math.sign(pos.q) === Math.sign(dq)) pos.avg = (pos.avg * Math.abs(pos.q) + pr * Math.abs(dq)) / (Math.abs(pos.q) + Math.abs(dq));
     else if (Math.sign(nq) !== Math.sign(pos.q) && Math.abs(nq) > 1e-12) pos.avg = pr;
     A.cash -= dq * pr; pos.q = Math.abs(nq) < 1e-12 ? 0 : nq;
@@ -373,6 +394,7 @@ class App {
   }
   closePos() {
     const sym = this.act.sym, A = this.S.acct, pos = A.pos[sym]; if (!pos) return; const pr = live[sym].p, pnl = pos.q * (pr - pos.avg);
+    recordTrade(this, { sym, side: pos.q > 0 ? 'long' : 'short', q: Math.abs(pos.q), entry: pos.avg, exit: pr, t0: pos.t0 || Date.now(), t1: Date.now() });
     A.cash += pos.q * pr; A.hist.unshift({ t: Date.now(), s: sym, side: pos.q > 0 ? 'sell' : 'buy', q: Math.abs(pos.q), p: pr }); delete A.pos[sym];
     this.save(); toast(`Pozisyon kapandı · ${pnl >= 0 ? '+' : ''}${fUSD(pnl)}`, pnl >= 0 ? 'ok' : 'bad'); this.renderTrade(); this.charts.forEach((x) => (x.dirty = true));
   }
@@ -579,6 +601,7 @@ class App {
   tick() {
     const now = Date.now();
     computeDerived();
+    if (!this.pmT || now - this.pmT > 30000) { this.pmT = now; this.periodMarks(); }
     for (const sd of SYMS) { const l = live[sd.s]; if (!l || l.mode !== 'sim') continue; l.prev = l.p; l.p *= Math.exp(((Math.random() - 0.5) * 2 * 1.7) * (sd.v || 0.015) * Math.sqrt(0.7 / 3600) * 2.2); }
     for (const c of this.charts) {
       const l = live[c.sym]; if (!l) continue;

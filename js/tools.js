@@ -18,6 +18,7 @@ function bindMenu() {
     if (k === 'heat') openHeat();
     if (k === 'share') shareChart();
     if (k === 'csv') $('#csvModal').classList.add('show');
+    if (['an', 'radar', 'flow', 'sector', 'risk', 'jr', 'smart'].includes(k)) app.openTool(k);
   });
 }
 export function openTools() { $('#toolsModal').classList.add('show'); }
@@ -147,7 +148,7 @@ function renderCmpUI() {
   $('#cmpTL').classList.toggle('on', cmp.tl); $('#cmpTL').textContent = cmp.tl ? '₺ TL bazında' : '$ Kendi para biriminde';
   $('#cmpChips').innerHTML = cmp.syms.map((s, i) => `<span class="cchip" style="border-color:${CC[i % CC.length]}"><i style="background:${CC[i % CC.length]}"></i>${esc(s)}<button data-cmprm="${esc(s)}">×</button></span>`).join('');
 }
-async function series(sd) {
+export async function series(sd) {
   if (sd.src === 'binance') return binanceKlines(sd.s, '1G', 1000);
   if (sd.src === 'derived') return derivedKlines(sd, '1G');
   if (sd.custom) { const b = app.S.customs[sd.s]; return b ? b.d : []; }

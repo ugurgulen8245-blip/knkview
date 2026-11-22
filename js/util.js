@@ -12,7 +12,7 @@ export const dec = (p) => { p = Math.abs(p); return p >= 1000 ? 2 : p >= 10 ? 2 
 export const fP = (p, d) => (isFinite(p) ? nf(d ?? dec(p)).format(p) : '—');
 export const fV = (v) => v >= 1e9 ? nf(2).format(v / 1e9) + 'B' : v >= 1e6 ? nf(2).format(v / 1e6) + 'M' : v >= 1e3 ? nf(1).format(v / 1e3) + 'K' : nf(0).format(v || 0);
 export const fUSD = (v) => (v < 0 ? '-' : '') + '$' + nf(2).format(Math.abs(v));
-export const fPct = (v, d = 2) => (isFinite(v) ? (v >= 0 ? '+' : '') + nf(d).format(v) + '%' : '—');
+export const fPct = (v, d = 2) => { if (v == null || !isFinite(v)) return '—'; const r = Math.abs(v) < 0.5 * 10 ** -d ? 0 : v; return (r >= 0 ? '+' : '') + nf(d).format(r) + '%'; };
 export const pad = (n) => String(n).padStart(2, '0');
 export const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 export const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -30,3 +30,18 @@ export function toast(m, k = '') {
 }
 
 export function uid() { return (crypto.randomUUID && crypto.randomUUID()) || 'id' + Date.now().toString(36) + Math.random().toString(36).slice(2); }
+
+// Dinamik modal: ilk çağrıda oluşturur, gövde öğesini döndürür
+export function modal(id, title, wide = true) {
+  let m = document.getElementById(id);
+  if (!m) {
+    m = document.createElement('div'); m.className = 'modal' + (wide ? ' wide' : ''); m.id = id;
+    m.innerHTML = '<div class="mbox"><h3><span class="mt"></span><button data-close>×</button></h3><div class="mb"></div></div>';
+    document.body.appendChild(m);
+    m.addEventListener('click', (e) => { if (e.target === m || e.target.closest('[data-close]')) m.classList.remove('show'); });
+  }
+  m.querySelector('.mt').innerHTML = title; m.classList.add('show');
+  return m.querySelector('.mb');
+}
+export const dstr = (t) => { const x = new Date(t); return `${String(x.getDate()).padStart(2, '0')}.${String(x.getMonth() + 1).padStart(2, '0')}.${x.getFullYear()}`; };
+export const ago = (t) => { const s = (Date.now() - t) / 1000; return s < 3600 ? `${Math.max(1, Math.round(s / 60))} dk önce` : s < 86400 ? `${Math.round(s / 3600)} sa önce` : `${Math.round(s / 86400)} gün önce`; };
