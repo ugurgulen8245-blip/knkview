@@ -18,6 +18,7 @@ const DEF = {
   charts: [{ sym: 'BTCUSDT', tf: '1h' }, { sym: 'ETHUSDT', tf: '1h' }, { sym: 'THYAO', tf: '1h' }, { sym: 'XAUUSD', tf: '1h' }],
   type: 'candle', ind: { sma20: true, ema50: true, ema200: false, bb: false, ichi: false, vp: false, vol: true, fc: false }, lower: 'rsi', fcH: 24,
   drawings: {}, alerts: [], acct: { cash: 100000, pos: {}, hist: [] }, customs: {}, extra: [],
+  calc: { cap: 10000, risk: 1, lev: 1, fee: 0.1 },
 };
 
 class App {
@@ -41,6 +42,7 @@ class App {
     try { S = JSON.parse(localStorage.getItem('trendtakip') || localStorage.getItem('knkview') || '{}'); } catch (e) { S = {}; }
     const out = Object.assign(structuredClone(DEF), S);
     out.ind = Object.assign({}, DEF.ind, S.ind || {});
+    out.calc = Object.assign({}, DEF.calc, S.calc || {});
     if (!Array.isArray(out.charts) || out.charts.length < 4) {
       const c = structuredClone(DEF.charts); if (S.sym) c[0] = { sym: S.sym, tf: S.tf || '1h' }; out.charts = c;
     }
@@ -105,12 +107,12 @@ class App {
   setLayout(n) { this.S.layout = n; this.booted = true; this.applyLayout(); this.save(); }
   setActive(i) {
     if (this.S.active === i) return;
-    this.S.active = i; this.highlightActive(); this.renderChips(); this.renderTop(); this.renderWatch(true); this.renderTrade(); this.renderAna(true); this.save();
+    this.S.active = i; this.selPos = null; this.highlightActive(); this.renderChips(); this.renderTop(); this.renderWatch(true); this.renderTrade(); this.renderAna(true); this.renderCalc(true); this.save();
   }
   highlightActive() { this.charts.forEach((c, i) => c.el.classList.toggle('act', i === this.S.active)); }
-  onChartData(c) { if (c === this.act) { this.renderTop(); this.renderTrade(); this.renderAna(true); } }
+  onChartData(c) { if (c === this.act) { this.renderTop(); this.renderTrade(); this.renderAna(true); this.renderCalc(true); } }
   setSym(s) {
-    const c = this.act; this.S.charts[this.S.active].sym = s; this.save(); c.load();
+    const c = this.act; this.S.charts[this.S.active].sym = s; this.selPos = null; this.calcV = null; this.save(); c.load();
     this.renderTop(); this.renderWatch(true); this.renderTrade(); this.renderAna(true);
   }
 
@@ -131,11 +133,13 @@ class App {
       fib: '<path d="M4 5h16M4 10h16M4 14h16M4 19h16"/>',
       fibext: '<path d="M4 19l6-9 4 5"/><path d="M14 4h7M14 8h7M14 12h7"/>',
       alert: '<path d="M6 16V11a6 6 0 0112 0v5l2 2H4z"/><path d="M10 21h4"/>',
+      long: '<rect x="4" y="4" width="16" height="7" rx="1" stroke="#19c37d"/><rect x="4" y="13" width="16" height="7" rx="1" stroke="#f0435a"/><path d="M12 9V6M10 7.5l2-2 2 2" stroke="#19c37d"/>',
+      short: '<rect x="4" y="4" width="16" height="7" rx="1" stroke="#f0435a"/><rect x="4" y="13" width="16" height="7" rx="1" stroke="#19c37d"/><path d="M12 15v3M10 16.5l2 2 2-2" stroke="#19c37d"/>',
       undo: '<path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 010 10h-3"/>',
       trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
     };
-    const TIPS = { tog: 'Çizim araçları', cursor: 'İmleç', trend: 'Trend çizgisi', hline: 'Yatay seviye', fib: 'Fibonacci düzeltme', fibext: 'Fibonacci uzantı (3 nokta)', alert: 'Fiyat alarmı', undo: 'Geri al', trash: 'Çizimleri temizle' };
-    $('#tools').innerHTML = ['tog', 'cursor', 'trend', 'hline', 'fib', 'fibext', 'alert', '|', 'undo', 'trash'].map((k) => (k === '|' ? '<div class="tsep"></div>' : `<button class="tb${k === 'tog' ? ' tog' : ''}" data-k="${k}" title="${TIPS[k]}"><svg viewBox="0 0 24 24">${ICON[k]}</svg></button>`)).join('');
+    const TIPS = { tog: 'Çizim araçları', cursor: 'İmleç', trend: 'Trend çizgisi', hline: 'Yatay seviye', fib: 'Fibonacci düzeltme', fibext: 'Fibonacci uzantı (3 nokta)', alert: 'Fiyat alarmı', long: 'Long pozisyon (kâr/zarar)', short: 'Short pozisyon (kâr/zarar)', undo: 'Geri al', trash: 'Çizimleri temizle' };
+    $('#tools').innerHTML = ['tog', 'cursor', 'long', 'short', 'trend', 'hline', 'fib', 'fibext', 'alert', '|', 'undo', 'trash'].map((k) => (k === '|' ? '<div class="tsep"></div>' : `<button class="tb${k === 'tog' ? ' tog' : ''}" data-k="${k}" title="${TIPS[k]}"><svg viewBox="0 0 24 24">${ICON[k]}</svg></button>`)).join('');
     if (innerWidth <= 860) $('#tools').classList.add('collapsed');
     $('#tools').onclick = (e) => {
       const b = e.target.closest('.tb'); if (!b) return; const k = b.dataset.k;
@@ -149,6 +153,7 @@ class App {
       if (e.target.tagName === 'INPUT') return; const c = this.act; if (!c) return;
       if (e.key === 'Escape') { this.setTool('cursor'); this.charts.forEach((x) => x.cancelDraft()); }
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') this.undo();
+      if ((e.key === 'Delete' || e.key === 'Backspace') && this.selPos) this.deletePlan();
       if (e.key === 'ArrowLeft') { c.V.right += 5; c.clampView(); c.dirty = true; }
       if (e.key === 'ArrowRight') { c.V.right -= 5; c.clampView(); c.dirty = true; }
       if (e.key === '+' || e.key === '=') c.zoomAt(c.L.plotW, c.V.barW * 1.2);
@@ -172,6 +177,7 @@ class App {
     $('#alList').onclick = (e) => { const b = e.target.closest('button[data-id]'); if (!b) return; this.removeAlert(b.dataset.id); };
     $('#resetAcc').onclick = () => { this.S.acct = structuredClone(DEF.acct); this.save(); this.renderTrade(); this.charts.forEach((c) => (c.dirty = true)); toast('Demo hesap sıfırlandı: $100.000'); };
     $('#notifBtn').onclick = () => this.enableNotifs();
+    this.bindCalc();
     // indikatörler
     $('#indBtn').onclick = () => { this.renderInd(); $('#indModal').classList.add('show'); };
     $('#indList').onclick = (e) => { const t = e.target.closest('.tg'); if (t) { this.toggleInd(t.dataset.k); this.renderInd(); } };
@@ -202,7 +208,7 @@ class App {
   }
   setTool(k) {
     this.tool = k; $$('.tb').forEach((b) => b.classList.toggle('on', b.dataset.k === k));
-    const H = { trend: 'İki nokta arasında sürükle', hline: 'Seviyeye dokun', fib: 'Dipten tepeye sürükle', fibext: 'A→B sürükle, sonra C noktasına dokun', alert: 'Alarm fiyatına dokun' };
+    const H = { trend: 'İki nokta arasında sürükle', hline: 'Seviyeye dokun', fib: 'Dipten tepeye sürükle', fibext: 'A→B sürükle, sonra C noktasına dokun', alert: 'Alarm fiyatına dokun', long: 'Giriş fiyatına dokun · kutuyu sürükleyerek düzenle', short: 'Giriş fiyatına dokun · kutuyu sürükleyerek düzenle' };
     if (H[k]) this.hint(H[k]); else $('#hint').classList.remove('show');
   }
   hint(t) { const h = $('#hint'); clearTimeout(this.hintT); h.textContent = t; h.classList.add('show'); this.hintT = setTimeout(() => h.classList.remove('show'), 2800); }
@@ -305,7 +311,7 @@ class App {
   closeSheet() { $('#side').classList.remove('open'); $('#scrim').classList.remove('show'); }
   showTab(t) {
     $$('.tab').forEach((b) => b.classList.toggle('on', b.dataset.t === t)); $$('.pane').forEach((p) => p.classList.toggle('on', p.id === 'p-' + t));
-    if (t === 'ana') this.renderAna(true); if (t === 'trade') this.renderTrade();
+    if (t === 'ana') this.renderAna(true); if (t === 'trade') { this.renderTrade(); this.renderCalc(true); }
   }
 
   // ---------- analiz: teknik skor + tahmin ----------
@@ -384,6 +390,106 @@ class App {
     $('#notifBtn').textContent = pushOn ? (this.cloud.on ? '✅ Bildirimler açık · tekrar test et' : '✅ Bildirimler açık (site açıkken)') : '🔔 Bildirimleri aç';
     const h = A.hist;
     $('#hist').innerHTML = h.length ? h.slice(0, 12).map((x) => { const d = new Date(x.t); return `<div><span class="${x.side === 'buy' ? 'up' : 'dn'}">${x.side === 'buy' ? 'AL' : 'SAT'} ${esc(x.s)}</span><span>${fP(x.q, 4)} @ ${fP(x.p)}</span><span>${pad(d.getHours())}:${pad(d.getMinutes())}</span></div>`; }).join('') : '<div class="empty">Henüz işlem yok</div>';
+  }
+
+  // ---------- kâr / zarar hesaplayıcı + long/short planı ----------
+  selectPlan(d, open) {
+    this.selPos = d; this.charts.forEach((c) => (c.dirty = true));
+    if (d) { this.calcV = null; this.renderCalc(true); if (open) { if (this.mob()) toast('Kâr/zarar detayı: alt menüde AL/SAT → İşlem', 'al'); else this.showTab('trade'); } }
+    else this.renderCalc(true);
+  }
+  planChanged() { clearTimeout(this.pcT); this.pcT = setTimeout(() => this.renderCalc(false), 60); }
+  deletePlan() {
+    const d = this.selPos; if (!d) return;
+    for (const k of Object.keys(this.S.drawings)) this.S.drawings[k] = this.S.drawings[k].filter((x) => x !== d);
+    this.selPos = null; this.save(); this.charts.forEach((c) => (c.dirty = true)); this.renderCalc(true);
+  }
+  calcVals() {
+    const c = this.act, d = this.selPos && this.act.myDrawings().includes(this.selPos) ? this.selPos : null;
+    if (d) return { d, dir: d.k, e: d.p1, tp: d.tp, sl: d.sl };
+    if (!this.calcV || this.calcV.sym !== c.sym) {
+      const p = c.data.length ? c.data[c.data.length - 1].c : live[c.sym]?.p || 100, a = c.data.length > 15 ? c.atr() : p * 0.01;
+      this.calcV = { sym: c.sym, dir: 'long', e: p, tp: p + 3 * a, sl: p - 1.5 * a };
+    }
+    return this.calcV;
+  }
+  bindCalc() {
+    const box = $('#calcBox');
+    box.addEventListener('input', (e) => {
+      const f = e.target.dataset.f; if (!f) return; const v = parseFloat(String(e.target.value).replace(',', '.'));
+      if (['cap', 'risk', 'lev', 'fee'].includes(f)) { if (isFinite(v) && v >= 0) { this.S.calc[f] = v; this.save(); } this.renderCalc(false); return; }
+      if (!(v > 0)) return; const V = this.calcVals(), key = { e: 'p1', tp: 'tp', sl: 'sl' }[f];
+      if (V.d) V.d[key] = v; else V[f] = v;
+      this.charts.forEach((c) => (c.dirty = true)); this.renderCalc(false); if (V.d) this.save();
+    });
+    box.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-c]'); if (!b) return; const a = b.dataset.c, V = this.calcVals(), c = this.act;
+      if (a === 'long' || a === 'short') {
+        if (V.dir !== a) { const dT = V.tp - V.e, dS = V.sl - V.e; if (V.d) { V.d.k = a; V.d.tp = V.e - dT; V.d.sl = V.e - dS; this.save(); } else { V.dir = a; V.tp = V.e - dT; V.sl = V.e - dS; } }
+        this.charts.forEach((x) => (x.dirty = true)); this.renderCalc(true);
+      }
+      if (a === 'now') { const p = c.data[c.data.length - 1].c, dT = V.tp - V.e, dS = V.sl - V.e; if (V.d) { V.d.p1 = p; V.d.tp = p + dT; V.d.sl = p + dS; this.save(); } else { V.e = p; V.tp = p + dT; V.sl = p + dS; } this.charts.forEach((x) => (x.dirty = true)); this.renderCalc(true); }
+      if (a === 'draw') {
+        const i = c.data.length - 1, d = { k: V.dir, t1: c.data[i].t, t2: c.tOfIdx(i + 24), p1: V.e, tp: V.tp, sl: V.sl };
+        c.myDrawings().push(d); this.save(); this.selectPlan(d); if (this.mob()) this.closeSheet(); toast('Plan grafiğe çizildi · kutuyu sürükleyerek düzenleyebilirsin', 'ok');
+      }
+      if (a === 'del') this.deletePlan();
+      if (a === 'alerts') { this.addAlert(c.sym, V.tp); this.addAlert(c.sym, V.sl); }
+      if (a === 'trade') { const r = this.calcResult(); $('#amt').value = Math.round(r.notional * 100) / 100; this.trade(V.dir === 'long' ? 'buy' : 'sell'); }
+    });
+  }
+  calcResult() {
+    const V = this.calcVals(), C = this.S.calc, long = V.dir === 'long';
+    const riskPer = Math.abs(V.e - V.sl), rewardPer = Math.abs(V.tp - V.e), cap = C.cap || 0, lev = Math.max(1, C.lev || 1), fee = (C.fee || 0) / 100;
+    let qty = riskPer > 0 ? (cap * (C.risk || 0) / 100) / (riskPer + V.e * fee * 2) : 0;
+    const maxQty = (cap * lev) / V.e; const capped = qty > maxQty; if (capped) qty = maxQty;
+    const notional = qty * V.e, fees = notional * fee * 2;
+    const profit = qty * rewardPer - fees, loss = qty * riskPer + fees;
+    const valid = long ? V.tp > V.e && V.sl < V.e : V.tp < V.e && V.sl > V.e;
+    const be = long ? V.e * (1 + fee * 2) : V.e * (1 - fee * 2);
+    const liq = lev > 1 ? (long ? V.e * (1 - 1 / lev) : V.e * (1 + 1 / lev)) : null;
+    const liqBeforeStop = liq != null && (long ? liq >= V.sl : liq <= V.sl);
+    return { V, qty, notional, margin: notional / lev, fees, profit, loss, rr: riskPer ? rewardPer / riskPer : 0, valid, be, liq, liqBeforeStop, capped,
+      tpPct: ((V.tp - V.e) / V.e) * 100, slPct: ((V.sl - V.e) / V.e) * 100, capPctP: cap ? (profit / cap) * 100 : 0, capPctL: cap ? (loss / cap) * 100 : 0 };
+  }
+  renderCalc(full) {
+    const box = $('#calcBox'); if (!box || !this.act || !this.act.data.length) return;
+    const r = this.calcResult(), V = r.V, C = this.S.calc, long = V.dir === 'long', sym = this.act.sym;
+    const st = V.d ? (() => { const o = this.act.posOutcome(V.d); return o.r === 'tp' ? '<span class="sigB">✓ Hedefe ulaştı</span>' : o.r === 'sl' ? '<span class="sigS">✗ Stop oldu</span>' : o.r === 'expired' ? 'Süre doldu' : 'Açık'; })() : '';
+    if (full || !box.querySelector('[data-f=e]')) {
+      const dp = (p) => (+p).toFixed(Math.min(8, Math.max(2, String(fP(p)).split(',')[1]?.length || 2)));
+      box.innerHTML = `<div class="lbl" style="display:flex;justify-content:space-between"><span>KÂR / ZARAR HESAPLAYICI · ${esc(sym)}</span>${V.d ? '<span style="color:var(--ac)">● grafikteki plan</span>' : ''}</div>
+        <div class="seg two" style="margin:0 0 10px"><button data-c="long" class="${long ? 'on lg' : ''}">▲ Long (Al)</button><button data-c="short" class="${!long ? 'on sh' : ''}">▼ Short (Sat)</button></div>
+        <div class="cgrid">
+          <label>Giriş<input data-f="e" inputmode="decimal" value="${dp(V.e)}"></label>
+          <label class="g">Hedef<input data-f="tp" inputmode="decimal" value="${dp(V.tp)}"></label>
+          <label class="r">Stop<input data-f="sl" inputmode="decimal" value="${dp(V.sl)}"></label>
+          <label>Sermaye $<input data-f="cap" inputmode="decimal" value="${C.cap}"></label>
+          <label>Risk %<input data-f="risk" inputmode="decimal" value="${C.risk}"></label>
+          <label>Kaldıraç x<input data-f="lev" inputmode="decimal" value="${C.lev}"></label>
+          <label>Komisyon %<input data-f="fee" inputmode="decimal" value="${C.fee}"></label>
+          <button data-c="now" class="mini">Giriş = şu anki fiyat</button>
+        </div>
+        <div id="calcOut"></div>
+        <div class="cbtns">${V.d ? '' : '<button data-c="draw" class="closeb">📐 Grafiğe çiz</button>'}<button data-c="alerts" class="closeb">🔔 Hedef + stop alarmı</button><button data-c="trade" class="closeb">▶ Demo işlem aç</button>${V.d ? '<button data-c="del" class="closeb">🗑 Planı sil</button>' : ''}</div>`;
+    } else {
+      for (const [f, v] of [['e', V.e], ['tp', V.tp], ['sl', V.sl]]) { const el = box.querySelector(`[data-f=${f}]`); if (el !== document.activeElement) el.value = (+v).toFixed(Math.min(8, Math.max(2, String(fP(v)).split(',')[1]?.length || 2))); }
+    }
+    const warn = !r.valid ? `<div class="cwarn">⚠️ ${long ? 'Long için hedef girişin üstünde, stop altında olmalı' : 'Short için hedef girişin altında, stop üstünde olmalı'}</div>`
+      : r.liqBeforeStop ? `<div class="cwarn">⚠️ Tasfiye fiyatı (${fP(r.liq)}) stoptan önce geliyor. Kaldıracı düşür ya da stopu yaklaştır.</div>`
+      : r.capped ? '<div class="cwarn">ℹ️ Pozisyon, sermaye × kaldıraç sınırına göre küçültüldü; gerçek risk %' + nfmt(r.capPctL) + '</div>' : '';
+    $('#calcOut').innerHTML = `${warn}
+      <div class="cres"><div class="g"><span>Hedefte kâr</span><b>+${fUSD(Math.max(0, r.profit))}</b><i>${fPct(r.tpPct)} fiyat · sermayeye göre %${nfmt(r.capPctP)}</i></div>
+      <div class="r"><span>Stopta zarar</span><b>-${fUSD(r.loss)}</b><i>${fPct(r.slPct)} fiyat · sermayeye göre %${nfmt(r.capPctL)}</i></div></div>
+      <div class="irow"><span>Risk / Ödül</span><span class="${r.rr >= 2 ? 'sigB' : r.rr < 1 ? 'sigS' : ''}">1 : ${fP(r.rr, 2)}</span></div>
+      <div class="irow"><span>Pozisyon büyüklüğü</span><span>${fP(r.qty, r.qty >= 100 ? 2 : 4)} adet · ${fUSD(r.notional)}</span></div>
+      <div class="irow"><span>Gerekli teminat</span><span>${fUSD(r.margin)}</span></div>
+      <div class="irow"><span>Komisyon (giriş+çıkış)</span><span>${fUSD(r.fees)}</span></div>
+      <div class="irow"><span>Başabaş fiyatı</span><span>${fP(r.be)}</span></div>
+      ${r.liq != null ? `<div class="irow"><span>Tahmini tasfiye fiyatı</span><span class="sigS">${fP(r.liq)}</span></div>` : ''}
+      <div class="irow"><span>Kazanmak için gereken isabet</span><span>%${nfmt(100 / (1 + r.rr), 0)}</span></div>
+      ${st ? `<div class="irow"><span>Plan durumu</span><span>${st}</span></div>` : ''}
+      <div class="disc">Pozisyon büyüklüğü, stop olursan sermayenin yüzde ${nfmt(C.risk)} kadarını kaybedeceğin şekilde hesaplanır. Tasfiye fiyatı yaklaşıktır; borsanın teminat kurallarına göre değişir.</div>`;
   }
 
   // ---------- alarmlar ----------
@@ -484,10 +590,12 @@ class App {
       }
     }
     this.renderTop(); this.renderWatch(false);
-    if ($('#p-trade').classList.contains('on')) this.renderTrade();
+    if ($('#p-trade').classList.contains('on')) { this.renderTrade(); if (!this.calcT || Date.now() - this.calcT > 2000) { this.calcT = Date.now(); if (this.selPos) this.renderCalc(false); } }
     this.renderAna(false);
   }
 }
+
+function nfmt(v, d = 2) { return isFinite(v) ? new Intl.NumberFormat('tr-TR', { maximumFractionDigits: d }).format(v) : '—'; }
 
 // ---------- CSV ayrıştırıcı ----------
 function parseCSV(txt) {

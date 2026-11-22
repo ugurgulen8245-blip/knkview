@@ -200,6 +200,24 @@ details summary{cursor:pointer;font-size:12px;color:var(--tx2);margin-top:8px}
 
 .qlinks{display:none;grid-template-columns:repeat(3,1fr);gap:6px;margin:0 10px 6px}
 .qlinks button{padding:8px 0;border-radius:9px;background:var(--panel2);border:1px solid var(--line2);font-size:12px;font-weight:700;color:var(--tx2)}
+/* kâr/zarar hesaplayıcı */
+.cgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.cgrid label{display:flex;flex-direction:column;gap:3px;font-size:10px;font-weight:700;color:var(--tx3);letter-spacing:.03em}
+.cgrid input{width:100%;min-width:0;padding:8px;border-radius:8px;border:1px solid var(--line2);background:var(--bg);outline:0;font-family:var(--mono);font-size:12px;color:var(--tx)}
+.cgrid input:focus{border-color:var(--ac)}
+.cgrid label.g input{border-color:#19c37d66}.cgrid label.r input{border-color:#f0435a66}
+.cgrid .mini{grid-column:span 2;align-self:end;padding:8px 4px;border-radius:8px;border:1px dashed var(--line2);font-size:11px;font-weight:600;color:var(--tx2)}
+.seg button.lg{background:#19c37d!important;color:#fff}.seg button.sh{background:#f0435a!important;color:#fff}
+.cres{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0 6px}
+.cres div{border-radius:10px;padding:10px;background:var(--bg)}
+.cres .g{border:1px solid #19c37d55}.cres .r{border:1px solid #f0435a55}
+.cres span{display:block;font-size:11px;color:var(--tx2)}
+.cres b{display:block;font-family:var(--mono);font-size:17px;margin:2px 0}
+.cres .g b{color:var(--up)}.cres .r b{color:var(--dn)}
+.cres i{font-style:normal;font-size:10px;color:var(--tx3)}
+.cwarn{font-size:11px;color:var(--ac2);background:#ffb54714;border:1px solid #ffb54744;border-radius:8px;padding:7px 9px;margin-top:10px}
+.cbtns{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
+.cbtns .closeb{margin-top:4px}
 /* piyasalar */
 .mtabs{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
 .mtabs::-webkit-scrollbar{display:none}

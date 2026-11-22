@@ -392,7 +392,66 @@ export class Chart {
 
   // ---------- çizimler ----------
   myDrawings() { const D = this.S.drawings; return D[this.sym] || (D[this.sym] = []); }
+  atr(n = 14) {
+    const d = this.data, e = d.length - 1; let s = 0, c = 0;
+    for (let i = Math.max(1, e - n + 1); i <= e; i++) { s += Math.max(d[i].h - d[i].l, Math.abs(d[i].h - d[i - 1].c), Math.abs(d[i].l - d[i - 1].c)); c++; }
+    return c ? s / c : d[e].c * 0.01;
+  }
+  posOutcome(d) { // plan geçmiş mumlarda hedefe mi stopa mı değdi?
+    const long = d.k === 'long', i0 = Math.max(0, Math.ceil(this.idxOfT(d.t1))), i1 = Math.min(this.last(), Math.floor(this.idxOfT(d.t2)));
+    for (let i = i0 + 1; i <= i1; i++) {
+      const b = this.data[i]; if (!b) continue;
+      const hitSL = long ? b.l <= d.sl : b.h >= d.sl, hitTP = long ? b.h >= d.tp : b.l <= d.tp;
+      if (hitSL) return { r: 'sl', i }; if (hitTP) return { r: 'tp', i };
+    }
+    return { r: i1 < Math.floor(this.idxOfT(d.t2)) ? 'open' : 'expired' };
+  }
+  drawPos(d) {
+    const ctx = this.ctx, long = d.k === 'long', sel = this.app.selPos === d;
+    const x1 = this.xOf(this.idxOfT(d.t1)), x2 = this.xOf(this.idxOfT(d.t2)), w = Math.max(8, x2 - x1);
+    const yE = this.yOf(d.p1), yT = this.yOf(d.tp), yS = this.yOf(d.sl);
+    ctx.fillStyle = '#19c37d26'; ctx.fillRect(x1, Math.min(yE, yT), w, Math.abs(yT - yE));
+    ctx.fillStyle = '#f0435a26'; ctx.fillRect(x1, Math.min(yE, yS), w, Math.abs(yS - yE));
+    // gerçekleşen yol: girişten son fiyata
+    const o = this.posOutcome(d), last = this.data[this.last()];
+    if (o.r === 'open' && last) { const yC = this.yOf(last.c), good = long ? last.c >= d.p1 : last.c <= d.p1; ctx.fillStyle = good ? '#19c37d33' : '#f0435a33'; ctx.fillRect(x1, Math.min(yE, yC), Math.min(w, this.xOf(this.last()) - x1 + 4), Math.abs(yC - yE)); }
+    ctx.lineWidth = 1; ctx.setLineDash([]);
+    ctx.strokeStyle = '#19c37d'; ctx.beginPath(); ctx.moveTo(x1, yT + 0.5); ctx.lineTo(x1 + w, yT + 0.5); ctx.stroke();
+    ctx.strokeStyle = '#f0435a'; ctx.beginPath(); ctx.moveTo(x1, yS + 0.5); ctx.lineTo(x1 + w, yS + 0.5); ctx.stroke();
+    ctx.strokeStyle = '#e6ebf5aa'; ctx.beginPath(); ctx.moveTo(x1, yE + 0.5); ctx.lineTo(x1 + w, yE + 0.5); ctx.stroke();
+    const pct = (p) => ((p - d.p1) / d.p1) * 100, rr = Math.abs(d.tp - d.p1) / Math.abs(d.p1 - d.sl || 1);
+    const tag = (y, txt, bg) => { ctx.font = '600 10px JetBrains Mono'; const tw = ctx.measureText(txt).width + 10, vx2 = Math.min(x1 + w, this.L.plotW - 4), x = Math.max(Math.min(x1, vx2 - tw), (Math.max(0, x1) + vx2) / 2 - tw / 2); ctx.fillStyle = bg; this.rr(x, y - 8, tw, 16, 4); ctx.fill(); ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(txt, x + 5, y); };
+    const tOff = yT < yE ? -10 : 10, sOff = yS > yE ? 10 : -10;
+    tag(yT + tOff, `Hedef ${fP(d.tp)} (${fPct(pct(d.tp))})`, '#12a467');
+    tag(yS + sOff, `Stop ${fP(d.sl)} (${fPct(pct(d.sl))})`, '#d42c45');
+    const res = o.r === 'tp' ? ' · ✓ Hedef' : o.r === 'sl' ? ' · ✗ Stop' : o.r === 'expired' ? ' · süre doldu' : '';
+    tag(yE, `${long ? 'LONG' : 'SHORT'} ${fP(d.p1)} · R/R ${fP(rr, 2)}${res}`, sel ? '#8b6cff' : '#2a3446');
+    if (sel) for (const [x, y] of [[x1, yT], [x1, yS], [x1, yE], [x1 + w, yE]]) { ctx.fillStyle = '#fff'; ctx.fillRect(x - 4, y - 4, 8, 8); ctx.strokeStyle = '#8b6cff'; ctx.lineWidth = 2; ctx.strokeRect(x - 4, y - 4, 8, 8); }
+  }
+  hitPos(p) {
+    const ds = this.myDrawings();
+    for (let k = ds.length - 1; k >= 0; k--) {
+      const d = ds[k]; if (d.k !== 'long' && d.k !== 'short') continue;
+      const x1 = this.xOf(this.idxOfT(d.t1)), x2 = Math.max(x1 + 8, this.xOf(this.idxOfT(d.t2))), yE = this.yOf(d.p1), yT = this.yOf(d.tp), yS = this.yOf(d.sl), R = 10;
+      const near = (x, y) => Math.abs(p.x - x) <= R && Math.abs(p.y - y) <= R;
+      if (near(x2, yE)) return { d, h: 'end' };
+      const inX = p.x >= x1 - R && p.x <= x2 + R;
+      if (inX && Math.abs(p.y - yT) <= 7) return { d, h: 'tp' };
+      if (inX && Math.abs(p.y - yS) <= 7) return { d, h: 'sl' };
+      if (inX && p.y >= Math.min(yT, yS) && p.y <= Math.max(yT, yS)) return { d, h: 'move' };
+    }
+    return null;
+  }
+  dragPos(p) {
+    const g = this.posDrag, d = g.d, o = g.o, dp = this.pOf(p.y) - this.pOf(g.p0.y), db = (p.x - g.p0.x) / this.V.barW, long = d.k === 'long';
+    if (g.h === 'tp') { const v = o.tp + dp; if (long ? v > d.p1 : v < d.p1) d.tp = v; }
+    else if (g.h === 'sl') { const v = o.sl + dp; if (long ? v < d.p1 : v > d.p1) d.sl = v; }
+    else if (g.h === 'end') { const t = this.tOfIdx(this.idxOfT(o.t2) + db); if (t > d.t1) d.t2 = t; }
+    else { d.p1 = o.p1 + dp; d.tp = o.tp + dp; d.sl = o.sl + dp; d.t1 = this.tOfIdx(this.idxOfT(o.t1) + db); d.t2 = this.tOfIdx(this.idxOfT(o.t2) + db); }
+    this.dirty = true; this.app.planChanged();
+  }
   drawOne(d) {
+    if (d.k === 'long' || d.k === 'short') return this.drawPos(d);
     const ctx = this.ctx, L = this.L, x1 = this.xOf(this.idxOfT(d.t1)), y1 = this.yOf(d.p1);
     ctx.lineWidth = 1.6; ctx.setLineDash([]);
     if (d.k === 'hline') { ctx.strokeStyle = C.ac; ctx.beginPath(); ctx.moveTo(0, y1); ctx.lineTo(L.plotW, y1); ctx.stroke(); ctx.fillStyle = C.ac; ctx.font = '600 10px JetBrains Mono'; ctx.textAlign = 'left'; ctx.fillText(fP(d.p1), 6, y1 - 7); return; }
@@ -443,6 +502,16 @@ export class Chart {
       cv.setPointerCapture(e.pointerId); const p = this.pt(e); this.ptrs.set(e.pointerId, p);
       if (this.ptrs.size === 2) { const [a, b] = [...this.ptrs.values()]; this.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, bw: this.V.barW, cx: (a.x + b.x) / 2 }; this.drag = null; this.draft = null; return; }
       const tool = this.app.tool;
+      if (tool === 'cursor' && p.x < this.L.plotW && p.y < this.L.mainH) {
+        const h = this.hitPos(p);
+        if (h) { this.posDrag = { ...h, p0: p, o: { ...h.d } }; this.app.selectPlan(h.d); this.dirty = true; return; }
+        if (this.app.selPos) { this.app.selectPlan(null); }
+      }
+      if ((tool === 'long' || tool === 'short') && p.x < this.L.plotW && p.y < this.L.mainH) {
+        const i = Math.round(this.idxOf(p.x)), e = this.snapP(p.x, p.y), a = this.atr(), up = tool === 'long' ? 1 : -1;
+        const d = { k: tool, t1: this.tOfIdx(i), t2: this.tOfIdx(i + 24), p1: e, tp: e + up * 3 * a, sl: e - up * 1.5 * a };
+        this.myDrawings().push(d); this.app.drawingDone(); this.app.selectPlan(d, true); this.dirty = true; return;
+      }
       if (this.draft && this.draft.k === 'fibext' && this.draft.phase === 2) { this.draft.t3 = this.tOfIdx(Math.round(this.idxOf(p.x))); this.draft.p3 = this.snapP(p.x, p.y); delete this.draft.phase; this.myDrawings().push(this.draft); this.draft = null; this.app.drawingDone(); this.dirty = true; return; }
       if (tool !== 'cursor' && p.x < this.L.plotW && p.y < this.L.mainH) {
         const t = this.tOfIdx(Math.round(this.idxOf(p.x))), pr = this.snapP(p.x, p.y);
@@ -461,6 +530,7 @@ export class Chart {
         if (this.draft.phase === 2) { this.draft.t3 = t; this.draft.p3 = pr; } else if (this.ptrs.size) { this.draft.t2 = t; this.draft.p2 = pr; }
         this.V.cross = p; this.dirty = true; return;
       }
+      if (this.posDrag) { this.dragPos(p); return; }
       if (this.drag && this.drag.axis) return;
       if (this.drag) {
         const dx = p.x - this.drag.x0, dy = p.y - this.drag.y0; if (Math.abs(dx) + Math.abs(dy) > 5) this.drag.moved = true;
@@ -468,10 +538,12 @@ export class Chart {
         if (this.drag.moved) { this.V.right = this.drag.r0 + dx / this.V.barW; this.clampView(); if (!this.drag.touch) this.V.cross = p; this.dirty = true; }
         return;
       }
+      if (e.pointerType === 'mouse' && this.app.tool === 'cursor') { const h = this.hitPos(p); this.cv.style.cursor = !h ? 'crosshair' : h.h === 'move' ? 'move' : h.h === 'end' ? 'ew-resize' : 'ns-resize'; }
       if (e.pointerType === 'mouse') { this.V.cross = p.x < this.L.plotW && p.y < this.L.mainH + this.L.lowerH ? p : null; this.dirty = true; }
     });
     const end = (e) => {
       const p = this.pt(e); this.ptrs.delete(e.pointerId);
+      if (this.posDrag) { this.posDrag = null; this.app.save(); return; }
       if (this.pinch) { if (this.ptrs.size < 2) this.pinch = null; this.drag = null; return; }
       if (this.draft && this.draft.phase === 1) {
         const big = Math.abs(this.xOf(this.idxOfT(this.draft.t2)) - this.xOf(this.idxOfT(this.draft.t1))) + Math.abs(this.yOf(this.draft.p2) - this.yOf(this.draft.p1)) > 6;
