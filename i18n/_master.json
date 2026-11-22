@@ -5612,5 +5612,12 @@
 "hi": "रोबोट जाँच लोड नहीं हुई, पेज रीफ़्रेश करें।",
 "zh": "人机验证加载失败，请刷新页面。",
 "ko": "로봇 확인을 불러오지 못했습니다. 페이지를 새로고침하세요."
+},
+"Robot doğrulaması geçilemedi; kutunun onaylanmasını bekleyip tekrar dene.": {
+"en": "The robot check didn't pass; wait for the box to confirm and try again.",
+"fr": "La vérification anti-robot a échoué ; attendez la validation de la case et réessayez.",
+"hi": "रोबोट जाँच पास नहीं हुई; बॉक्स के पुष्टि होने तक रुकें और फिर कोशिश करें।",
+"zh": "人机验证未通过；请等待方框确认后重试。",
+"ko": "로봇 확인을 통과하지 못했습니다. 상자가 확인될 때까지 기다린 뒤 다시 시도하세요."
 }
 }

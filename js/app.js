@@ -622,7 +622,7 @@ class App {
           else { await this.cloud.login(em, cap); $('#accMsg').innerHTML = `✉️ <b>${esc(em)}</b> adresine bağlantı gönderildi. Maildeki bağlantıya tıkla. (Gelmezse spam klasörüne bak.)`; }
         } catch (e) {
           const m = String(e.message || e);
-          $('#accMsg').textContent = /Invalid login credentials/i.test(m) ? 'E-posta ya da şifre hatalı. Daha önce sadece bağlantıyla girdiysen şifren yok: giriş yaptığın cihazda Hesabım → Şifre belirle.' : /rate limit/i.test(m) ? 'Çok fazla e-posta gönderildi; bir saat sonra tekrar dene ya da şifreyle giriş yap.' : 'Olmadı: ' + m;
+          $('#accMsg').textContent = /Invalid login credentials/i.test(m) ? 'E-posta ya da şifre hatalı. Daha önce sadece bağlantıyla girdiysen şifren yok: giriş yaptığın cihazda Hesabım → Şifre belirle.' : /rate limit/i.test(m) ? 'Çok fazla e-posta gönderildi; bir saat sonra tekrar dene ya da şifreyle giriş yap.' : /captcha/i.test(m) ? 'Robot doğrulaması geçilemedi; kutunun onaylanmasını bekleyip tekrar dene.' : 'Olmadı: ' + m;
           $('#accGo').disabled = false; resetCaptcha();
         }
       };
