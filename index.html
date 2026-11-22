@@ -23,6 +23,7 @@
     <div class="quote"><span id="qPrice" class="mono">—</span><span id="qChg" class="chg">—</span></div>
     <div class="spacer"></div>
     <span class="demo" id="srcPill">…</span>
+    <button id="mktBtn" class="ibtn" title="Tüm piyasalar"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18"/></svg><span class="t">Piyasalar</span></button>
     <button id="scrBtn" class="ibtn" title="Piyasa tarayıcı"><svg viewBox="0 0 24 24"><path d="M3 5h18M6 12h12M10 19h4"/></svg><span class="t">Tarayıcı</span></button>
     <button id="csvBtn" class="ibtn" title="Kendi verini yükle (CSV)"><svg viewBox="0 0 24 24"><path d="M12 16V4M6 10l6-6 6 6M4 20h16"/></svg><span class="t">CSV</span></button>
     <button id="accBtn" class="ibtn acc" title="Hesap"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg><span class="t" id="accTxt">Giriş</span></button>
@@ -51,6 +52,7 @@
       <div class="tabs"><button class="tab on" data-t="watch">İzleme</button><button class="tab" data-t="ana">Analiz</button><button class="tab" data-t="trade">İşlem</button></div>
       <div class="pane on" id="p-watch">
         <div class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="q" placeholder="Sembol ara veya ekle…" autocomplete="off"></div>
+        <div class="qlinks"><button data-act="mkt">🌐 Piyasalar</button><button data-act="scr">☰ Tarayıcı</button><button data-act="csv">⇪ CSV</button></div>
         <div id="wlist"></div>
       </div>
       <div class="pane" id="p-ana"><div id="anaBox"></div></div>
@@ -114,6 +116,15 @@
   </div>
   <div class="scrwrap"><table class="scrt"><thead><tr><th data-k="s">Sembol</th><th data-k="p">Fiyat</th><th data-k="ch">Değ. %</th><th data-k="rsi">RSI</th><th data-k="sc">Teknik</th><th data-k="qv">Hacim</th></tr></thead><tbody id="scrBody"></tbody></table></div>
   <div class="note small" id="scrNote"></div>
+</div></div>
+
+<!-- Piyasalar -->
+<div class="modal wide" id="mktModal"><div class="mbox scr">
+  <h3>Piyasalar <button data-close>×</button></h3>
+  <div class="mtabs" id="mktTabs"></div>
+  <div class="search" style="margin:10px 0"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="mktQ" placeholder="Bu listede ara: sembol, şirket adı veya sektör…" autocomplete="off"></div>
+  <div class="scrwrap"><table class="scrt mkt"><thead id="mktHead"></thead><tbody id="mktBody"></tbody></table></div>
+  <div class="note small" id="mktNote"></div>
 </div></div>
 
 <div id="toasts"></div>

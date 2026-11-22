@@ -5,6 +5,8 @@ import { Chart } from './chart.js';
 import * as IND from './ind.js';
 import { Cloud } from './cloud.js';
 import { openScreener } from './screener.js';
+import { openMarkets, globalSearch, internalSym, exGroup } from './markets.js';
+const GORDER = ['KRİPTO', 'ENDEKSLER & EMTİA', 'BORSA İSTANBUL', 'ABD HİSSELERİ', 'ÇİN (ŞANGAY)', 'GLOBAL', 'YÜKLENEN VERİLER'];
 
 const TYPES = { candle: 'Mum', heikin: 'Heikin', line: 'Çizgi', area: 'Alan' };
 const INDS = [
@@ -183,6 +185,9 @@ class App {
     $('#accBtn').onclick = () => { this.renderAccount(); $('#accModal').classList.add('show'); };
     // tarayıcı
     $('#scrBtn').onclick = () => openScreener(this);
+    $('#mktBtn').onclick = () => openMarkets(this);
+    document.querySelector('.qlinks').onclick = (e) => { const b = e.target.closest('[data-act]'); if (!b) return; const a = b.dataset.act;
+      if (a === 'mkt') openMarkets(this); else if (a === 'scr') openScreener(this); else $('#csvModal').classList.add('show'); };
     // analiz paneli olayları
     $('#anaBox').onclick = (e) => {
       const h = e.target.closest('[data-h]'); if (h) { this.S.fcH = +h.dataset.h; this.save(); this.charts.forEach((c) => { c.recalc(); if (this.S.ind.fc) { c.V.right = c.defRight(); } }); this.renderAna(true); return; }
@@ -224,20 +229,26 @@ class App {
     const q = ($('#q').value || '').toLowerCase(), box = $('#wlist'), cur = this.S.charts[this.S.active].sym;
     if (full) {
       let g = '', h = '';
-      for (const sd of SYMS) {
+      const gi = (x) => { const i = GORDER.indexOf(x.g); return i < 0 ? 99 : i; };
+      const ordered = SYMS.map((x, i) => [x, i]).sort((a, b) => gi(a[0]) - gi(b[0]) || a[1] - b[1]).map((x) => x[0]);
+      for (const sd of ordered) {
         if (q && !(sd.s.toLowerCase().includes(q) || (sd.n || '').toLowerCase().includes(q))) continue;
         if (sd.g !== g) { g = sd.g; h += `<div class="grp">${esc(g)}</div>`; }
         const l = live[sd.s], md = l && l.mode === 'sim' ? '<span class="mode sim">SİM</span>' : l && l.mode === 'delayed' ? '<span class="mode dl">GEC</span>' : '';
         h += `<div class="wrow${sd.s === cur ? ' on' : ''}" data-s="${esc(sd.s)}"><div class="s">${esc(sd.s)}${md}${sd.extra ? `<span class="x" data-rm="${esc(sd.s)}" title="Listeden çıkar">✕</span>` : ''}</div><div class="p" id="wp-${esc(sd.s)}"></div><div class="n">${esc(sd.n || '')}</div><div class="c" id="wc-${esc(sd.s)}"></div></div>`;
       }
       const Q = q.toUpperCase().replace(/[^A-Z0-9.=^-]/g, '');
+      let any = !!h;
       if (Q.length >= 2) {
+        h += '<div class="grp">EKLE</div>'; any = true;
         const cs = Q.endsWith('USDT') ? Q : Q + 'USDT', bs = Q.replace(/\.IS$/, '');
         if (!symDef(cs)) h += `<div class="addrow" data-add="binance" data-v="${cs}">＋ ${cs} <small>Binance kripto</small></div>`;
-        if (!symDef(bs) && !/USDT$/.test(Q)) h += `<div class="addrow" data-add="yahoo" data-v="${bs}.IS" data-n="${bs}">＋ ${bs} <small>Borsa İstanbul</small></div>`;
-        if (!/USDT$/.test(Q) && !SYMS.find((x) => x.y === Q)) h += `<div class="addrow" data-add="yahoo" data-v="${Q}" data-n="${Q}">＋ ${Q} <small>Global (ABD hisse, endeks, döviz)</small></div>`;
-      }
-      box.innerHTML = h || '<div class="empty">Sonuç yok</div>';
+        if (!symDef(bs) && !/USDT$/.test(Q) && /^[A-Z0-9]{3,6}$/.test(bs)) h += `<div class="addrow bguess" data-add="yahoo" data-v="${bs}.IS" data-n="${bs}" data-g="BORSA İSTANBUL">＋ ${bs} <small>Borsa İstanbul</small></div>`;
+        h += '<div id="gsr"><div class="empty">Tüm borsalarda aranıyor…</div></div>';
+        h += '<div class="addrow" data-mkt="1">🌐 Tüm piyasalara göz at <small>kripto, endeksler, S&P 500, Nasdaq, BIST, Şanghay</small></div>';
+        globalSearch(q, (res) => this.renderGlobal(res));
+      } else h += '<div class="addrow" data-mkt="1">🌐 Tüm piyasalara göz at <small>kripto, endeksler, S&P 500, Nasdaq, BIST, Şanghay</small></div>';
+      box.innerHTML = any || h ? h : '<div class="empty">Sonuç yok</div>';
     }
     for (const sd of SYMS) {
       const l = live[sd.s], pe = document.getElementById('wp-' + sd.s); if (!l || !pe) continue;
@@ -249,20 +260,30 @@ class App {
       const ch = ((l.p - l.o24) / l.o24) * 100, ce = document.getElementById('wc-' + sd.s); ce.textContent = fPct(ch); ce.className = 'c ' + (ch >= 0 ? 'up' : 'dn');
     }
   }
-  async addSymbol(src, v, name) {
-    const sd = src === 'binance' ? { s: v, n: v.replace(/USDT$/, ''), g: 'KRİPTO', src } : { s: name, n: v.endsWith('.IS') ? 'BIST hissesi' : 'Yahoo Finance', g: v.endsWith('.IS') ? 'BORSA İSTANBUL' : 'GLOBAL', src, y: v };
+  async addSymbol(src, v, name, meta = {}) {
+    const sd = src === 'binance' ? { s: v, n: v.replace(/USDT$/, ''), g: 'KRİPTO', src }
+      : { s: name || internalSym(v), n: meta.n || (v.endsWith('.IS') ? 'BIST hissesi' : v), g: meta.g || exGroup(v, meta.t), src, y: v };
     if (symDef(sd.s)) return symDef(sd.s);
+    const same = SYMS.find((x) => x.y && x.y === sd.y); if (same) return same;
     if (src === 'binance') { const d = await binanceKlines(v, '1G', 5); if (!d.length) throw new Error(`${v} bulunamadı`); sd.p = d[d.length - 1].c; }
     else {
       if (net.API_OK === false) throw new Error('Borsa verisi için site Vercel\'de çalışmalı');
       const j = await getJSON([`/api/quotes?s=${encodeURIComponent(v)}`]); if (!j[0] || !j[0].price) throw new Error(`${v} bulunamadı`); sd.p = j[0].price;
+      if (!meta.n && j[0].n) sd.n = j[0].n;
     }
     SYMS.push({ ...sd, extra: true }); this.S.extra.push(sd); initLive();
     live[sd.s].mode = src === 'binance' ? 'live' : 'delayed';
     if (src === 'binance') binanceTickers(); else yahooQuotes();
     this.save(); return sd;
   }
+  renderGlobal(res) {
+    const el = document.getElementById('gsr'); if (!el) return;
+    const rows = res.filter((x) => !SYMS.find((s) => s.y === x.y) && !symDef(internalSym(x.y)));
+    el.innerHTML = rows.length ? rows.map((x) => `<div class="addrow" data-add="yahoo" data-v="${esc(x.y)}" data-n="${esc(internalSym(x.y))}" data-nm="${esc(x.n)}" data-t="${esc(x.t)}">＋ ${esc(x.y)} <small>${esc(x.n)} · ${esc(x.t)}${x.ex ? ' · ' + esc(x.ex) : ''}</small></div>`).join('') : '';
+    if (rows.some((x) => x.y.endsWith('.IS'))) $$('.bguess').forEach((b) => b.remove());
+  }
   async onWatchClick(e) {
+    if (e.target.closest('[data-mkt]')) { openMarkets(this); return; }
     const rm = e.target.closest('[data-rm]');
     if (rm) {
       e.stopPropagation(); const s = rm.dataset.rm;
@@ -273,7 +294,7 @@ class App {
     }
     const ad = e.target.closest('[data-add]');
     if (ad) {
-      try { const sd = await this.addSymbol(ad.dataset.add, ad.dataset.v, ad.dataset.n); $('#q').value = ''; this.setSym(sd.s); this.closeSheet(); toast(`＋ ${sd.s} eklendi`, 'ok'); }
+      try { const sd = await this.addSymbol(ad.dataset.add, ad.dataset.v, ad.dataset.n, { n: ad.dataset.nm, t: ad.dataset.t, g: ad.dataset.g }); $('#q').value = ''; this.setSym(sd.s); this.closeSheet(); toast(`＋ ${sd.s} eklendi`, 'ok'); }
       catch (err) { toast(err.message || 'Eklenemedi', 'bad'); }
       return;
     }
