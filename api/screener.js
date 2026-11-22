@@ -3,7 +3,7 @@ const { chart } = require('./_yahoo');
 
 const BIST = ['AKBNK', 'ALARK', 'ARCLK', 'ASELS', 'ASTOR', 'BIMAS', 'BRSAN', 'CCOLA', 'DOAS', 'EKGYO', 'ENKAI', 'EREGL', 'FROTO', 'GARAN',
   'GUBRF', 'HEKTS', 'ISCTR', 'KCHOL', 'KONTR', 'KRDMD', 'MGROS', 'OYAKC', 'PETKM', 'PGSUS', 'SAHOL', 'SASA', 'SISE', 'TCELL', 'THYAO',
-  'TOASO', 'TTKOM', 'TUPRS', 'ULKER', 'VAKBN', 'YKBNK', 'AEFES', 'TAVHL', 'HALKB', 'KOZAL', 'MAVI'];
+  'TOASO', 'TTKOM', 'TUPRS', 'ULKER', 'VAKBN', 'YKBNK', 'AEFES', 'TAVHL', 'HALKB', 'MAVI'];
 
 async function pool(items, n, fn) {
   let i = 0;
