@@ -28,6 +28,9 @@ const DEF = {
   calc: { cap: 10000, risk: 1, lev: 1, fee: 0.1 }, portfolio: [], pfCur: 'TRY', journal: [], smart: [], radars: [], limits: { day: 3, week: 7, pos: 25 },
 };
 
+// arama: Türkçe karakter, büyük/küçük harf ve boşluk farkını yok say ("gram altin" = "GRAMALTIN" = "Gram Altın")
+const fold = (t) => String(t).toLocaleLowerCase('tr').replace(/[ıi̇]/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c').replace(/[^a-z0-9.=^]/g, '');
+
 class App {
   constructor() {
     this.S = this.loadState();
@@ -245,13 +248,13 @@ class App {
 
   // ---------- izleme listesi ----------
   renderWatch(full) {
-    const q = ($('#q').value || '').toLowerCase(), box = $('#wlist'), cur = this.S.charts[this.S.active].sym;
+    const q = ($('#q').value || '').toLowerCase(), qn = fold(q), box = $('#wlist'), cur = this.S.charts[this.S.active].sym;
     if (full) {
       let g = '', h = '';
       const gi = (x) => { const i = GORDER.indexOf(x.g); return i < 0 ? 99 : i; };
       const ordered = SYMS.map((x, i) => [x, i]).sort((a, b) => gi(a[0]) - gi(b[0]) || a[1] - b[1]).map((x) => x[0]);
       for (const sd of ordered) {
-        if (q && !(sd.s.toLowerCase().includes(q) || (sd.n || '').toLowerCase().includes(q))) continue;
+        if (qn && !fold(sd.s + ' ' + (sd.n || '') + ' ' + (sd.g || '')).includes(qn)) continue;
         if (sd.g !== g) { g = sd.g; h += `<div class="grp">${esc(g)}</div>`; }
         const l = live[sd.s], md = l && l.mode === 'sim' ? '<span class="mode sim">SİM</span>' : l && l.mode === 'delayed' ? '<span class="mode dl">GEC</span>' : '';
         h += `<div class="wrow${sd.s === cur ? ' on' : ''}" data-s="${esc(sd.s)}"><div class="s">${esc(sd.s)}${md}${sd.extra ? `<span class="x" data-rm="${esc(sd.s)}" title="Listeden çıkar">✕</span>` : ''}</div><div class="p" id="wp-${esc(sd.s)}"></div><div class="n">${esc(sd.n || '')}</div><div class="c" id="wc-${esc(sd.s)}"></div></div>`;
