@@ -97,7 +97,7 @@ function observe() {
 }
 async function load(l) {
   if (l === 'tr') { dict = null; tpls = []; return; }
-  const r = await fetch(`/i18n/${l}.json`, { cache: 'force-cache' });
+  const r = await fetch(`/i18n/${l}.json`, { cache: 'no-cache' });
   if (!r.ok) throw new Error('dil dosyası yüklenemedi');
   dict = await r.json(); tpls = compile(dict);
 }
