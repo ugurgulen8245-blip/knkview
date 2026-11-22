@@ -37,6 +37,14 @@ export class Cloud {
     if (error) throw error;
     if (!data.session) throw new Error(data.user && data.user.identities && !data.user.identities.length ? 'Bu e-posta zaten kayıtlı. "Giriş yap"ı kullan; şifren yoksa giriş yaptığın cihazdan Hesabım → Şifre belirle.' : 'Kayıt alındı, e-postanı onaylaman gerekiyor.');
   }
+  async fn(action) {
+    const { data: s } = await this.sb.auth.getSession();
+    if (!s.session) throw new Error('Giriş gerekli');
+    const r = await fetch(FN, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + s.session.access_token }, body: JSON.stringify({ action }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || 'Sunucu hatası ' + r.status);
+    return j;
+  }
   async setPassword(password) {
     const { error } = await this.sb.auth.updateUser({ password });
     if (error) throw error;

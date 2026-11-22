@@ -561,12 +561,15 @@ class App {
         <p class="note">Giriş yapıldı: <b>${esc(u.email || '')}</b></p>
         <p class="note" style="margin-top:8px">İzleme listen, çizimlerin, portföyün, günlüğün, demo hesabın ve alarmların bu hesapla tüm cihazlarında ortak. Fiyat alarmları sunucuda her dakika kontrol edilir.</p>
         <button class="pbtn" id="accPush">🔔 Bu cihazda bildirimleri aç</button>
+        <div class="msub">TELEGRAM</div>
+        <div id="accTg"><p class="note small" style="margin-top:0">Kontrol ediliyor…</p></div>
         <div class="msub">ŞİFRE BELİRLE / DEĞİŞTİR</div>
         <p class="note small" style="margin-top:0">Diğer cihazlarda (ör. iPhone ana ekran uygulaması) e-posta beklemeden şifreyle girebilmek için.</p>
         <input class="field" id="accNewPw" type="password" placeholder="Yeni şifre (en az 6 karakter)" autocomplete="new-password">
         <button class="pbtn ghost" id="accSetPw">Şifreyi kaydet</button>
         <button class="pbtn ghost" id="accOut">Çıkış yap</button>`;
       $('#accPush').onclick = () => this.enableNotifs();
+      this.renderTg();
       $('#accSetPw').onclick = async () => { const pw = $('#accNewPw').value; if (pw.length < 6) return toast('Şifre en az 6 karakter olmalı', 'bad'); try { await this.cloud.setPassword(pw); $('#accNewPw').value = ''; toast('✓ Şifre kaydedildi. Artık her cihazda e-posta + şifreyle girebilirsin.', 'ok'); } catch (e) { toast('Şifre kaydedilemedi: ' + (e.message || e), 'bad'); } };
       $('#accOut').onclick = async () => { await this.cloud.logout(); $('#accModal').classList.remove('show'); };
     } else {
@@ -594,6 +597,32 @@ class App {
           $('#accMsg').textContent = /Invalid login credentials/i.test(m) ? 'E-posta ya da şifre hatalı. Daha önce sadece bağlantıyla girdiysen şifren yok: giriş yaptığın cihazda Hesabım → Şifre belirle.' : /rate limit/i.test(m) ? 'Çok fazla e-posta gönderildi; bir saat sonra tekrar dene ya da şifreyle giriş yap.' : 'Olmadı: ' + m;
           $('#accGo').disabled = false;
         }
+      };
+    }
+  }
+
+  async renderTg() {
+    const box = $('#accTg'); if (!box) return;
+    let st;
+    try { st = await this.cloud.fn('tg_status'); } catch (e) { box.innerHTML = `<p class="note small" style="margin-top:0">Telegram şu an kullanılamıyor: ${esc(e.message || e)}</p>`; return; }
+    if (!$('#accTg')) return;
+    if (st.linked) {
+      box.innerHTML = `<p class="note small" style="margin-top:0">✅ Bağlı${st.username ? ' (@' + esc(st.username) + ')' : ''}. Alarmların <b>@${esc(st.bot)}</b> üzerinden Telegram'a da gelir.</p>
+        <button class="pbtn ghost" id="tgTest">📨 Telegram'a deneme mesajı</button>
+        <button class="pbtn ghost" id="tgOff">Telegram bağlantısını kes</button>`;
+      $('#tgTest').onclick = async () => { try { const r = await this.cloud.fn('tg_test'); toast(r.sent ? '✓ Telegram\'a mesaj gönderildi' : 'Mesaj gönderilemedi; botu engellemediğinden emin ol', r.sent ? 'ok' : 'bad'); } catch (e) { toast(e.message || e, 'bad'); } };
+      $('#tgOff').onclick = async () => { try { await this.cloud.fn('tg_unlink'); toast('Telegram bağlantısı kesildi', ''); this.renderTg(); } catch (e) { toast(e.message || e, 'bad'); } };
+    } else {
+      box.innerHTML = `<p class="note small" style="margin-top:0">Alarmların Telegram'a da gelsin: düğmeye bas, açılan sohbette <b>Başlat</b>'a dokun.</p>
+        <button class="pbtn ghost" id="tgOn">✈️ Telegram'ı bağla</button>`;
+      $('#tgOn').onclick = async () => {
+        const w = window.open('', '_blank');
+        try {
+          const r = await this.cloud.fn('tg_link');
+          if (w) w.location.href = r.url; else location.href = r.url;
+          toast('Telegram\'da "Başlat"a bas, sonra buraya dön', '');
+          let n = 0; const iv = setInterval(async () => { n++; try { const s = await this.cloud.fn('tg_status'); if (s.linked) { clearInterval(iv); toast('✓ Telegram bağlandı', 'ok'); this.renderTg(); } } catch (_) {} if (n > 40) clearInterval(iv); }, 4000);
+        } catch (e) { if (w) w.close(); toast(e.message || e, 'bad'); }
       };
     }
   }
