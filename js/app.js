@@ -613,16 +613,15 @@ class App {
       $('#tgTest').onclick = async () => { try { const r = await this.cloud.fn('tg_test'); toast(r.sent ? '✓ Telegram\'a mesaj gönderildi' : 'Mesaj gönderilemedi; botu engellemediğinden emin ol', r.sent ? 'ok' : 'bad'); } catch (e) { toast(e.message || e, 'bad'); } };
       $('#tgOff').onclick = async () => { try { await this.cloud.fn('tg_unlink'); toast('Telegram bağlantısı kesildi', ''); this.renderTg(); } catch (e) { toast(e.message || e, 'bad'); } };
     } else {
+      let link;
+      try { link = await this.cloud.fn('tg_link'); } catch (e) { box.innerHTML = `<p class="note small" style="margin-top:0">Telegram şu an kullanılamıyor: ${esc(e.message || e)}</p>`; return; }
+      if (!$('#accTg')) return;
       box.innerHTML = `<p class="note small" style="margin-top:0">Alarmların Telegram'a da gelsin: düğmeye bas, açılan sohbette <b>Başlat</b>'a dokun.</p>
-        <button class="pbtn ghost" id="tgOn">✈️ Telegram'ı bağla</button>`;
-      $('#tgOn').onclick = async () => {
-        const w = window.open('', '_blank');
-        try {
-          const r = await this.cloud.fn('tg_link');
-          if (w) w.location.href = r.url; else location.href = r.url;
-          toast('Telegram\'da "Başlat"a bas, sonra buraya dön', '');
-          let n = 0; const iv = setInterval(async () => { n++; try { const s = await this.cloud.fn('tg_status'); if (s.linked) { clearInterval(iv); toast('✓ Telegram bağlandı', 'ok'); this.renderTg(); } } catch (_) {} if (n > 40) clearInterval(iv); }, 4000);
-        } catch (e) { if (w) w.close(); toast(e.message || e, 'bad'); }
+        <a class="pbtn ghost" id="tgOn" href="${esc(link.url)}" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none">✈️ Telegram'ı bağla</a>`;
+      $('#tgOn').onclick = () => {
+        toast('Telegram\'da "Başlat"a bas, sonra buraya dön', '');
+        clearInterval(this.tgIv); let n = 0;
+        this.tgIv = setInterval(async () => { n++; try { const s = await this.cloud.fn('tg_status'); if (s.linked) { clearInterval(this.tgIv); toast('✓ Telegram bağlandı', 'ok'); this.renderTg(); } } catch (_) {} if (n > 45) clearInterval(this.tgIv); }, 4000);
       };
     }
   }
