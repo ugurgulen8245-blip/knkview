@@ -1,5 +1,6 @@
 // Ekonomik takvim + KAP bildirimleri
 import { $, esc, toast, modal, ago } from './util.js';
+import { getLang } from './i18n.js';
 import { SYMS, getJSON, net } from './data.js';
 
 const FLAG = { TRY: '🇹🇷', USD: '🇺🇸', EUR: '🇪🇺', GBP: '🇬🇧', JPY: '🇯🇵', CNY: '🇨🇳', CHF: '🇨🇭', CAD: '🇨🇦', AUD: '🇦🇺', NZD: '🇳🇿', ALL: '🌐' };
@@ -13,7 +14,7 @@ const hm = (t) => new Date(t).toLocaleTimeString('tr-TR', { hour: '2-digit', min
 const dayKey = (t) => new Date(t).toLocaleDateString('en-CA', { timeZone: 'Europe/Istanbul' });
 const dayLabel = (t) => {
   const d = new Date(new Date(t).toLocaleString('en-US', { timeZone: 'Europe/Istanbul' })), k = dayKey(t), today = dayKey(Date.now()), tom = dayKey(Date.now() + 864e5);
-  return (k === today ? 'Bugün · ' : k === tom ? 'Yarın · ' : '') + `${d.getDate()} ${AY[d.getMonth()]} ${GUN[d.getDay()]}`;
+  return (k === today ? '<span>Bugün</span> · ' : k === tom ? '<span>Yarın</span> · ' : '') + `<span>${d.getDate()} ${AY[d.getMonth()]} ${GUN[d.getDay()]}</span>`;
 };
 export function myBist(a) {
   const s = new Set();
@@ -22,6 +23,7 @@ export function myBist(a) {
   return [...s];
 }
 
+window.addEventListener('langchange', () => { if (body && document.getElementById('agModal')?.classList.contains('show')) render(); });
 export function openAgenda(a, tab) {
   app = a; if (tab) st.tab = tab;
   body = modal('agModal', '📅 Takvim & KAP');
@@ -77,8 +79,9 @@ function renderList() {
       const dk = dayKey(x.t); if (dk !== last) { last = dk; html += `<div class="msub" style="margin:12px 0 4px">${dayLabel(x.t)}</div>`; }
       const past = x.t < now - 30 * 6e4, isNext = !past && !nextDone && x.t > now; if (isNext) nextDone = true;
       const dot = x.hol ? '⚪' : x.imp === 3 ? '🔴' : x.imp === 2 ? '🟠' : '🟡';
-      const nums = [x.act && `Açıklanan <b>${esc(x.act)}</b>`, x.fc && `Beklenti ${esc(x.fc)}`, x.prev && `Önceki ${esc(x.prev)}`].filter(Boolean).join(' · ');
-      html += `<div class="agr${past ? ' past' : ''}${isNext ? ' next' : ''}"><div class="agt">${hm(x.t)}</div><div class="agb"><div>${dot} ${FLAG[x.cur] || ''} <b>${esc(x.title)}</b>${x.approx ? ' <span class="tx3">(tahmini gün)</span>' : ''}</div>${x.title !== x.orig ? `<div class="tx3 small">${esc(x.orig)}</div>` : ''}${nums ? `<div class="small">${nums}</div>` : ''}${isNext ? `<div class="small" style="color:var(--ac2)">⏳ ${until(x.t)} sonra</div>` : ''}</div></div>`;
+      const nums = [x.act && `<span>Açıklanan</span> <b>${esc(x.act)}</b>`, x.fc && `<span>Beklenti ${esc(x.fc)}</span>`, x.prev && `<span>Önceki ${esc(x.prev)}</span>`].filter(Boolean).join(' · ');
+      const tr = getLang() === 'tr', title = tr || x.cur === 'TRY' ? x.title : x.orig;
+      html += `<div class="agr${past ? ' past' : ''}${isNext ? ' next' : ''}"><div class="agt">${hm(x.t)}</div><div class="agb"><div>${dot} ${FLAG[x.cur] || ''} <b>${esc(title)}</b>${x.approx ? ' <span class="tx3">(tahmini gün)</span>' : ''}</div>${tr && x.title !== x.orig ? `<div class="tx3 small">${esc(x.orig)}</div>` : ''}${nums ? `<div class="small">${nums}</div>` : ''}${isNext ? `<div class="small" style="color:var(--ac2)">⏳ ${until(x.t)} sonra</div>` : ''}</div></div>`;
     }
     box.innerHTML = html + '<p class="note small">Saatler Türkiye saatidir. 🔴 yüksek önemli veriler kurlarda, altında ve borsada sert hareket yaratabilir. Küresel veriler ForexFactory akışından; TÜİK günü tahminidir (genelde ayın 3\'ü).</p>';
   } else {
