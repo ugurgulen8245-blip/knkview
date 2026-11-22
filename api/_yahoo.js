@@ -7,14 +7,14 @@ const HOSTS = ['https://query1.finance.yahoo.com', 'https://query2.finance.yahoo
 
 async function chart(symbol, interval, range) {
   let lastErr;
-  for (const host of HOSTS) {
+  for (const host of [...HOSTS, ...HOSTS]) {
     try {
       const url = `${host}/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${interval}&range=${range}&includePrePost=false`;
       const r = await fetch(url, {
         headers: { 'User-Agent': 'Mozilla/5.0 (KnkView)', Accept: 'application/json' },
         signal: AbortSignal.timeout(8000),
       });
-      if (!r.ok) { lastErr = new Error('HTTP ' + r.status); continue; }
+      if (!r.ok) { lastErr = new Error('HTTP ' + r.status); if (r.status === 429 || r.status >= 500) await new Promise((ok) => setTimeout(ok, 400)); else if (r.status === 404) break; continue; }
       const j = await r.json();
       const res = j && j.chart && j.chart.result && j.chart.result[0];
       if (!res) { lastErr = new Error('sonuç yok'); continue; }

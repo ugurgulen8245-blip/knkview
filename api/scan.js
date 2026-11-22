@@ -21,18 +21,22 @@ module.exports = async (req, res) => {
   if (!list) return res.status(400).json({ error: 'geçersiz pazar' });
   const { metrics } = await import('../lib/metrics.mjs');
   const rows = [];
-  await pool(list, m === 'spx' ? 16 : 10, async (x) => {
+  await pool(list, m === 'spx' ? 12 : 8, async (x) => {
     try {
-      const r = await chart(x.y, '1d', '2y');
-      const q = (r.indicators && r.indicators.quote && r.indicators.quote[0]) || {}, ts = r.timestamp || [];
-      const d = [];
-      for (let i = 0; i < ts.length; i++) if (q.close[i] != null) d.push({ t: ts[i] * 1000, o: q.open[i] ?? q.close[i], h: q.high[i] ?? q.close[i], l: q.low[i] ?? q.close[i], c: q.close[i], v: q.volume[i] || 0 });
+      const toBars = (r) => { const q = (r.indicators && r.indicators.quote && r.indicators.quote[0]) || {}, ts = r.timestamp || [], d = []; for (let i = 0; i < ts.length; i++) if (q.close && q.close[i] != null) d.push({ t: ts[i] * 1000, o: q.open[i] ?? q.close[i], h: q.high[i] ?? q.close[i], l: q.low[i] ?? q.close[i], c: q.close[i], v: q.volume[i] || 0 }); return d; };
+      let r = await chart(x.y, '1d', '2y'), d = toBars(r);
+      if (d.length < 60) { // bazı endekslerde (BIST sektörleri) günlük geçmiş yok: saatlikten günlük mum üret
+        r = await chart(x.y, '60m', '2y'); const hd = toBars(r), out = []; let cur = null;
+        for (const b of hd) { const t = Math.floor(b.t / 864e5) * 864e5; if (!cur || cur.t !== t) { cur = { ...b, t }; out.push(cur); } else { cur.h = Math.max(cur.h, b.h); cur.l = Math.min(cur.l, b.l); cur.c = b.c; cur.v += b.v; } }
+        d = out;
+      }
       const mt = metrics(d); if (!mt) return;
       const price = r.meta && r.meta.regularMarketPrice;
       rows.push({ s: x.s, y: x.y, n: x.n, sec: x.sec, ...mt, p: price || mt.p, t: d.length ? d[d.length - 1].t : null });
     } catch (e) { /* atla */ }
   });
   rows.sort((a, b) => a.s.localeCompare(b.s));
-  res.setHeader('Cache-Control', 's-maxage=600, stale-while-revalidate=1800');
+  const full = rows.length >= list.length * 0.85;
+  res.setHeader('Cache-Control', full ? 's-maxage=600, stale-while-revalidate=1800' : 's-maxage=30');
   res.status(200).json({ m, rows, ts: Date.now() });
 };

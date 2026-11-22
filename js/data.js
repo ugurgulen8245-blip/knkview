@@ -166,9 +166,16 @@ export function openTickerWS() {
 }
 
 export const YINT = { '1m': ['1m', '5d'], '5m': ['5m', '1mo'], '15m': ['15m', '1mo'], '1h': ['60m', '1y'], '4h': ['60m', '2y'], '1G': ['1d', '10y'], '1H': ['1wk', 'max'] };
+async function hourlyFallback(y, tf) { // günlük geçmişi olmayan semboller için saatlikten üret
+  const j = await getJSON([`/api/yahoo?s=${encodeURIComponent(y)}&i=60m&r=2y`], 20000), d = [];
+  for (let k = 0; k < j.t.length; k++) { const c = j.c[k]; if (c == null) continue; d.push({ t: j.t[k], o: j.o[k] ?? c, h: j.h[k] ?? c, l: j.l[k] ?? c, c, v: j.v[k] || 0 }); }
+  const out = resample(d, TF['1G']);
+  return { j, d: tf === '1H' ? resample(out.map((b) => ({ ...b, t: b.t - ((new Date(b.t).getUTCDay() + 6) % 7) * 864e5 })), 6048e5) : out };
+}
 export async function yahooRaw(y, tf) {
   const [i, r] = YINT[tf];
   const j = await getJSON([`/api/yahoo?s=${encodeURIComponent(y)}&i=${i}&r=${r}`], 15000);
+  if ((tf === '1G' || tf === '1H') && j.t.length < 30) return (await hourlyFallback(y, tf)).d;
   const d = [];
   for (let k = 0; k < j.t.length; k++) {
     const c = j.c[k]; if (c == null) continue;
@@ -180,6 +187,7 @@ export async function yahooRaw(y, tf) {
 export async function yahooKlines(sd, tf) {
   const [i, r] = YINT[tf];
   const j = await getJSON([`/api/yahoo?s=${encodeURIComponent(sd.y)}&i=${i}&r=${r}`], 15000);
+  if ((tf === '1G' || tf === '1H') && j.t.length < 30) { const f = await hourlyFallback(sd.y, tf); if (j.price) { const l = live[sd.s]; l.prev = l.p; l.p = j.price; if (j.prev) l.o24 = j.prev; } return f.d; }
   const d = [];
   for (let k = 0; k < j.t.length; k++) {
     const c = j.c[k]; if (c == null) continue;
