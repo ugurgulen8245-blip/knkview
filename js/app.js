@@ -56,6 +56,7 @@ class App {
     this.charts = []; this.tool = 'cursor';
     hooks.customBase = (s) => this.S.customs[s];
     hooks.onLive = () => {};
+    hooks.onRecover = (syms) => { if (!this.booted) return; this.renderWatch(true); this.charts.forEach((c) => syms.includes(c.sym) && c.load()); toast('✓ Canlı veri geri geldi', 'ok'); };
     this.rebuildSyms();
     initLive();
     this.cloud = new Cloud(this);

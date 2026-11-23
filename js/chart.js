@@ -55,7 +55,6 @@ export class Chart {
     let d = null;
     try {
       if (sd.custom) { const b = hooks.customBase(sd.s); d = b ? (this.ms <= b.ms ? b.d.map((x) => ({ ...x })) : resample(b.d, this.ms)) : []; }
-      else if (l.mode === 'sim') d = gen(sd, this.tf);
       else if (sd.src === 'binance') { d = await binanceKlines(sd.s, this.tf); if (tok === this.tok) { l.mode = 'live'; this.openWS(); } }
       else if (sd.src === 'yahoo') {
         if (net.API_OK === false) throw new Error('api yok');

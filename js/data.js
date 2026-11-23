@@ -35,7 +35,10 @@ export const BASE = [
 export const SYMS = [];
 export const live = {};
 export const net = { API_OK: null };
-export const hooks = { customBase: () => null, onLive: () => {} };
+export const hooks = { customBase: () => null, onLive: () => {}, onRecover: () => {} };
+// simülasyondan gerçek veriye dönen sembolleri bildir
+function recovered(before) { const r = Object.keys(before).filter((s) => before[s] === 'sim' && live[s] && live[s].mode !== 'sim'); if (r.length) hooks.onRecover(r); }
+const modes = () => Object.fromEntries(Object.entries(live).map(([k, v]) => [k, v.mode]));
 export const symDef = (s) => SYMS.find((x) => x.s === s);
 
 export function initLive() {
@@ -126,7 +129,7 @@ export async function getJSON(urls, timeout = 9000) {
     try {
       const c = new AbortController(), t = setTimeout(() => c.abort(), timeout);
       const r = await fetch(u, { signal: c.signal, cache: 'no-store' }); clearTimeout(t);
-      if (r.ok) return await r.json(); last = new Error('HTTP ' + r.status);
+      if (r.ok) return await r.json(); last = new Error('HTTP ' + r.status); last.status = r.status;
     } catch (e) { last = e; }
   }
   throw last || new Error('ağ hatası');
@@ -140,13 +143,18 @@ function binanceSet() {
   for (const L of derivedLegs('binance')) { set.add(L.s); if (!live[L.s]) live[L.s] = { p: 0, o24: 0, prev: 0, mode: 'wait', leg: true }; }
   return [...set];
 }
+let bRetry = 0, bFail = 0;
 export async function binanceTickers() {
   const all = binanceSet(); if (!all.length) return;
+  const before = modes();
   try {
     const j = await getJSON(BREST.map((b) => `${b}/api/v3/ticker/24hr?symbols=${encodeURIComponent(JSON.stringify(all))}`));
     for (const t of j) { const l = live[t.symbol]; if (!l) continue; l.prev = l.p; l.p = +t.lastPrice; l.o24 = +t.openPrice; l.mode = 'live'; }
-    computeDerived();
-  } catch (e) { SYMS.filter((x) => x.src === 'binance' || (x.src === 'derived' && x.legs[0].src === 'binance')).forEach((x) => simify(x.s)); }
+    computeDerived(); recovered(before); bFail = 0;
+  } catch (e) {
+    SYMS.filter((x) => x.src === 'binance' || (x.src === 'derived' && x.legs[0].src === 'binance')).forEach((x) => simify(x.s));
+    clearTimeout(bRetry); bRetry = setTimeout(binanceTickers, Math.min(60000, 5000 * 2 ** bFail++)); // kalıcı simülasyona düşme, tekrar dene
+  }
   openTickerWS();
 }
 let tws = null, twsHost = 0, twsKey = '';
@@ -201,6 +209,7 @@ export async function yahooQuotes(onFail) {
   const ys = SYMS.filter((x) => x.src === 'yahoo'), legs = derivedLegs('yahoo');
   if ((!ys.length && !legs.length) || net.API_OK === false) return;
   const all = [...new Set([...ys.map((x) => x.y), ...legs.map((L) => L.s)])];
+  const before = modes();
   try {
     for (let i = 0; i < all.length; i += 60) {
       const j = await getJSON([`/api/quotes?s=${encodeURIComponent(all.slice(i, i + 60).join(','))}`], 20000);
@@ -211,8 +220,13 @@ export async function yahooQuotes(onFail) {
         if (legs.some((L) => L.s === q.s)) live['y:' + q.s] = { p: q.price, o24: q.prev || q.price, prev: q.price, mode: 'delayed', leg: true };
       }
     }
-    computeDerived();
+    computeDerived(); recovered(before);
   } catch (e) {
-    if (net.API_OK === null) { net.API_OK = false; ys.forEach((x) => simify(x.s)); SYMS.filter((x) => x.src === 'derived' && x.legs[0].src === 'yahoo').forEach((x) => simify(x.s)); onFail && onFail(); }
+    // /api hiç yoksa (statik barındırma: 404 ya da HTML döner) kalıcı kapat; geçici hatada 30 sn sonra tekrar denenir
+    const noApi = e && (e.status === 404 || e.name === 'SyntaxError');
+    if (net.API_OK === null) {
+      if (noApi) net.API_OK = false;
+      ys.forEach((x) => simify(x.s)); SYMS.filter((x) => x.src === 'derived' && x.legs[0].src === 'yahoo').forEach((x) => simify(x.s)); onFail && onFail();
+    }
   }
 }
