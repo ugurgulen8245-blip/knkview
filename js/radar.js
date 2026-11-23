@@ -1,6 +1,6 @@
 // Fırsat radarı (kriterli tarama) · Hacim & para akışı (büyük yatırımcı izleri) · BIST sektör gücü
 import { $, $$, fP, fPct, fV, esc, toast, modal, nf, uid } from './util.js';
-import { symDef, getJSON, BREST, binanceKlines, net } from './data.js';
+import { symDef, getJSON, BREST, bJSON, binanceKlines, net } from './data.js';
 import { metrics, flowFlags } from '/lib/metrics.mjs';
 import { label } from './ind.js';
 
@@ -34,7 +34,7 @@ async function load() {
   if (st.busy[m]) return; st.busy[m] = true; render();
   try {
     if (m === 'crypto') {
-      const all = await getJSON(BREST.map((b) => `${b}/api/v3/ticker/24hr`), 20000);
+      const all = await bJSON('/api/v3/ticker/24hr', 20000);
       const top = all.filter((t) => t.symbol.endsWith('USDT') && !/^(USDC|FDUSD|TUSD|BUSD|USDP|DAI|EUR|AEUR|EURI|USDE|XUSD|PAXG|WBTC|WBETH|BFUSD|USD1|RLUSD)USDT$|(UP|DOWN|BULL|BEAR)USDT$/.test(t.symbol))
         .sort((a, b) => b.quoteVolume - a.quoteVolume).slice(0, 80);
       const rows = []; let i = 0;

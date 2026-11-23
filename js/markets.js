@@ -1,6 +1,6 @@
 // Piyasalar: tüm kripto pariteleri, dünya endeksleri, emtia/döviz ve hisse listeleri (Dow, Nasdaq 100, S&P 500, BIST, Şanghay)
 import { $, $$, fP, fPct, fV, esc, toast } from './util.js';
-import { getJSON, BREST, symDef, SYMS, net } from './data.js';
+import { getJSON, BREST, bJSON, symDef, SYMS, net } from './data.js';
 
 const GROUPS = [
   { k: 'crypto', t: 'Kripto', g: 'KRİPTO' },
@@ -54,7 +54,7 @@ async function loadGroup(g) {
   st.busy[g] = true;
   try {
     if (g === 'crypto') {
-      const all = await getJSON(BREST.map((b) => `${b}/api/v3/ticker/24hr`), 20000);
+      const all = await bJSON('/api/v3/ticker/24hr', 20000);
       const rows = all.filter((t) => t.symbol.endsWith('USDT') && !STABLE.test(t.symbol) && +t.count > 0 && +t.lastPrice > 0)
         .sort((a, b) => b.quoteVolume - a.quoteVolume)
         .map((t) => ({ s: t.symbol, y: t.symbol, n: t.symbol.replace(/USDT$/, ''), p: +t.lastPrice, ch: +t.priceChangePercent, qv: +t.quoteVolume }));

@@ -1,6 +1,6 @@
 // Grafik motoru: her hücre bağımsız bir Chart örneğidir
 import { TF, TFL, MON, fP, fV, fUSD, fPct, dec, pad, clamp, toast } from './util.js';
-import { symDef, live, gen, simify, resample, hooks, net, binanceKlines, yahooKlines, derivedKlines, BINT, BWS } from './data.js';
+import { symDef, live, gen, simify, resample, hooks, net, binanceKlines, yahooKlines, derivedKlines, BINT, BWS, bnet } from './data.js';
 import * as IND from './ind.js';
 
 const C = { bg: '#0a0d13', grid: '#151b27', axis: '#5c6780', up: '#19c37d', dn: '#f0435a', ac: '#8b6cff', ac2: '#ffb547',
@@ -55,7 +55,7 @@ export class Chart {
     let d = null;
     try {
       if (sd.custom) { const b = hooks.customBase(sd.s); d = b ? (this.ms <= b.ms ? b.d.map((x) => ({ ...x })) : resample(b.d, this.ms)) : []; }
-      else if (sd.src === 'binance') { d = await binanceKlines(sd.s, this.tf); if (tok === this.tok) { l.mode = 'live'; this.openWS(); } }
+      else if (sd.src === 'binance') { d = await binanceKlines(sd.s, this.tf); if (tok === this.tok) { l.mode = 'live'; if (bnet.proxy) this.poll = setInterval(() => this.refreshYahoo(tok), 10000); else this.openWS(); } }
       else if (sd.src === 'yahoo') {
         if (net.API_OK === false) throw new Error('api yok');
         d = await yahooKlines(sd, this.tf); l.mode = 'delayed';
@@ -77,7 +77,7 @@ export class Chart {
   async refreshYahoo(tok) {
     if (tok !== this.tok || document.hidden) return;
     try {
-      const sd = symDef(this.sym), d = sd.src === 'derived' ? await derivedKlines(sd, this.tf) : await yahooKlines(sd, this.tf); if (tok !== this.tok || !d.length) return;
+      const sd = symDef(this.sym), d = sd.src === 'derived' ? await derivedKlines(sd, this.tf) : sd.src === 'binance' ? await binanceKlines(sd.s, this.tf) : await yahooKlines(sd, this.tf); if (tok !== this.tok || !d.length) return;
       const n0 = this.data.length; this.data = d; if (this.V.right > 0) this.V.right += d.length - n0; this.recalc(); this.dirty = true;
     } catch (e) {}
   }

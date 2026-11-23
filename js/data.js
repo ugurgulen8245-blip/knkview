@@ -122,6 +122,20 @@ export async function derivedKlines(sd, tf) {
 // ---------- ağ ----------
 export const BINT = { '1m': '1m', '5m': '5m', '15m': '15m', '1h': '1h', '4h': '4h', '1G': '1d', '1H': '1w' };
 export const BREST = ['https://data-api.binance.vision', 'https://api.binance.com'];
+// Binance'e doğrudan erişim engelliyse (operatör, tarayıcı kalkanı) kendi sunucumuz üzerinden çek
+const BPX = 'tt_bproxy';
+let bProxy = (() => { try { return Date.now() - Number(localStorage.getItem(BPX) || 0) < 864e5; } catch (e) { return false; } })();
+export const bnet = { get proxy() { return bProxy; } };
+export async function bJSON(path, timeout = 9000) {
+  const px = '/api/binance?u=' + encodeURIComponent(path);
+  if (bProxy) return getJSON([px], timeout);
+  try { return await getJSON(BREST.map((b) => b + path), 6000); }
+  catch (e) {
+    const j = await getJSON([px], timeout);
+    bProxy = true; try { localStorage.setItem(BPX, String(Date.now())); } catch (_) {}
+    return j;
+  }
+}
 export const BWS = ['wss://stream.binance.com:9443', 'wss://data-stream.binance.vision'];
 export async function getJSON(urls, timeout = 9000) {
   let last;
@@ -135,7 +149,7 @@ export async function getJSON(urls, timeout = 9000) {
   throw last || new Error('ağ hatası');
 }
 export async function binanceKlines(sym, tf, limit = 1000) {
-  const j = await getJSON(BREST.map((b) => `${b}/api/v3/klines?symbol=${sym}&interval=${BINT[tf]}&limit=${limit}`));
+  const j = await bJSON(`/api/v3/klines?symbol=${sym}&interval=${BINT[tf]}&limit=${limit}`);
   return j.map((k) => ({ t: k[0], o: +k[1], h: +k[2], l: +k[3], c: +k[4], v: +k[5] }));
 }
 function binanceSet() {
@@ -148,9 +162,10 @@ export async function binanceTickers() {
   const all = binanceSet(); if (!all.length) return;
   const before = modes();
   try {
-    const j = await getJSON(BREST.map((b) => `${b}/api/v3/ticker/24hr?symbols=${encodeURIComponent(JSON.stringify(all))}`));
+    const j = await bJSON(`/api/v3/ticker/24hr?symbols=${encodeURIComponent(JSON.stringify(all))}`);
     for (const t of j) { const l = live[t.symbol]; if (!l) continue; l.prev = l.p; l.p = +t.lastPrice; l.o24 = +t.openPrice; l.mode = 'live'; }
     computeDerived(); recovered(before); bFail = 0;
+    if (bProxy) { clearTimeout(bRetry); bRetry = setTimeout(() => { if (!document.hidden) binanceTickers(); else bRetry = setTimeout(binanceTickers, 10000); }, 10000); }
   } catch (e) {
     SYMS.filter((x) => x.src === 'binance' || (x.src === 'derived' && x.legs[0].src === 'binance')).forEach((x) => simify(x.s));
     clearTimeout(bRetry); bRetry = setTimeout(binanceTickers, Math.min(60000, 5000 * 2 ** bFail++)); // kalıcı simülasyona düşme, tekrar dene
@@ -159,6 +174,7 @@ export async function binanceTickers() {
 }
 let tws = null, twsHost = 0, twsKey = '';
 export function openTickerWS() {
+  if (bProxy) return; // doğrudan erişim yoksa akış da açılmaz; 10 sn'de bir sunucudan güncellenir
   const bs = binanceSet().filter((s) => live[s] && live[s].mode === 'live').map((s) => ({ s }));
   const key = bs.map((x) => x.s).join(',');
   if (tws && key === twsKey && tws.readyState <= 1) return;
